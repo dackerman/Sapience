@@ -282,4 +282,289 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database implementation
+import { db } from "./db";
+import { and, eq, desc, asc, isNull, count } from "drizzle-orm";
+
+export class DatabaseStorage implements IStorage {
+  // User methods - Not implemented for PostgreSQL as we don't have users table
+  async getUser(id: number): Promise<User | undefined> {
+    return undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    throw new Error("Users not implemented in database version");
+  }
+
+  // Category methods
+  async getCategories(): Promise<CategoryWithFeedCount[]> {
+    const categoriesResult = await db.select().from(categories);
+    const categoriesWithCount: CategoryWithFeedCount[] = [];
+
+    for (const category of categoriesResult) {
+      const feedsCount = await db
+        .select({ count: count() })
+        .from(feeds)
+        .where(eq(feeds.categoryId, category.id));
+      
+      categoriesWithCount.push({
+        ...category,
+        feedCount: Number(feedsCount[0]?.count || 0)
+      });
+    }
+
+    return categoriesWithCount;
+  }
+
+  async getCategoryById(id: number): Promise<Category | undefined> {
+    const [category] = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, id));
+    
+    return category;
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const [category] = await db
+      .insert(categories)
+      .values(insertCategory)
+      .returning();
+    
+    return category;
+  }
+
+  async deleteCategory(id: number): Promise<boolean> {
+    // First, update any feeds in this category to "Uncategorized" (id: 4)
+    await db
+      .update(feeds)
+      .set({ categoryId: 4 })
+      .where(eq(feeds.categoryId, id));
+    
+    const result = await db
+      .delete(categories)
+      .where(eq(categories.id, id));
+    
+    return true;
+  }
+
+  // Feed methods
+  async getFeeds(): Promise<FeedWithArticleCount[]> {
+    const feedsResult = await db.select().from(feeds);
+    const feedsWithCounts: FeedWithArticleCount[] = [];
+
+    for (const feed of feedsResult) {
+      const articlesResult = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(eq(articles.feedId, feed.id));
+      
+      const unreadResult = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(and(
+          eq(articles.feedId, feed.id),
+          eq(articles.read, false)
+        ));
+      
+      feedsWithCounts.push({
+        ...feed,
+        articleCount: Number(articlesResult[0]?.count || 0),
+        unreadCount: Number(unreadResult[0]?.count || 0)
+      });
+    }
+
+    return feedsWithCounts;
+  }
+
+  async getFeedsByCategory(categoryId: number): Promise<FeedWithArticleCount[]> {
+    const feedsResult = await db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.categoryId, categoryId));
+    
+    const feedsWithCounts: FeedWithArticleCount[] = [];
+
+    for (const feed of feedsResult) {
+      const articlesResult = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(eq(articles.feedId, feed.id));
+      
+      const unreadResult = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(and(
+          eq(articles.feedId, feed.id),
+          eq(articles.read, false)
+        ));
+      
+      feedsWithCounts.push({
+        ...feed,
+        articleCount: Number(articlesResult[0]?.count || 0),
+        unreadCount: Number(unreadResult[0]?.count || 0)
+      });
+    }
+
+    return feedsWithCounts;
+  }
+
+  async getFeedById(id: number): Promise<Feed | undefined> {
+    const [feed] = await db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.id, id));
+    
+    return feed;
+  }
+
+  async createFeed(
+    insertFeed: InsertFeed,
+    title?: string,
+    description?: string,
+    favicon?: string
+  ): Promise<Feed> {
+    const [feed] = await db
+      .insert(feeds)
+      .values({
+        url: insertFeed.url,
+        title: title || "Untitled Feed",
+        description: description || null,
+        favicon: favicon || null,
+        categoryId: insertFeed.categoryId || null,
+        autoRefresh: insertFeed.autoRefresh || false,
+        lastFetched: new Date()
+      })
+      .returning();
+    
+    return feed;
+  }
+
+  async updateFeed(id: number, feedUpdate: Partial<Feed>): Promise<Feed | undefined> {
+    const [updatedFeed] = await db
+      .update(feeds)
+      .set(feedUpdate)
+      .where(eq(feeds.id, id))
+      .returning();
+    
+    return updatedFeed;
+  }
+
+  async deleteFeed(id: number): Promise<boolean> {
+    // First delete all articles from this feed
+    await this.deleteArticlesByFeedId(id);
+    
+    // Then delete the feed
+    await db
+      .delete(feeds)
+      .where(eq(feeds.id, id));
+    
+    return true;
+  }
+
+  // Article methods
+  async getArticles(feedId?: number): Promise<Article[]> {
+    if (feedId) {
+      return this.getArticlesByFeedId(feedId);
+    }
+    
+    const articlesResult = await db
+      .select()
+      .from(articles);
+    
+    // Sort by publication date in descending order
+    return articlesResult.sort((a, b) => {
+      if (!a.pubDate || !b.pubDate) return 0;
+      return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+    });
+  }
+
+  async getArticleById(id: number): Promise<Article | undefined> {
+    const [article] = await db
+      .select()
+      .from(articles)
+      .where(eq(articles.id, id));
+    
+    return article;
+  }
+
+  async getArticlesByFeedId(feedId: number, sortBy = 'newest'): Promise<Article[]> {
+    let query = db
+      .select()
+      .from(articles)
+      .where(eq(articles.feedId, feedId));
+    
+    // Execute the query first
+    const articlesResult = await query;
+    
+    // Then apply sorting based on the sortBy parameter
+    if (sortBy === 'newest') {
+      return articlesResult.sort((a, b) => {
+        if (!a.pubDate || !b.pubDate) return 0;
+        return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+      });
+    } else if (sortBy === 'oldest') {
+      return articlesResult.sort((a, b) => {
+        if (!a.pubDate || !b.pubDate) return 0;
+        return new Date(a.pubDate).getTime() - new Date(b.pubDate).getTime();
+      });
+    } else if (sortBy === 'unread') {
+      return articlesResult.sort((a, b) => {
+        if (a.read === b.read) {
+          const dateA = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+          const dateB = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+          return dateB - dateA;
+        }
+        return a.read ? 1 : -1;
+      });
+    }
+    
+    return articlesResult;
+  }
+
+  async createArticle(insertArticle: InsertArticle): Promise<Article> {
+    const [article] = await db
+      .insert(articles)
+      .values({
+        ...insertArticle,
+        read: false,
+        favorite: false
+      })
+      .returning();
+    
+    return article;
+  }
+
+  async updateArticle(id: number, articleUpdate: Partial<Article>): Promise<Article | undefined> {
+    const [updatedArticle] = await db
+      .update(articles)
+      .set(articleUpdate)
+      .where(eq(articles.id, id))
+      .returning();
+    
+    return updatedArticle;
+  }
+
+  async deleteArticle(id: number): Promise<boolean> {
+    await db
+      .delete(articles)
+      .where(eq(articles.id, id));
+    
+    return true;
+  }
+
+  async deleteArticlesByFeedId(feedId: number): Promise<boolean> {
+    await db
+      .delete(articles)
+      .where(eq(articles.feedId, feedId));
+    
+    return true;
+  }
+}
+
+// Export the database storage implementation
+export const storage = new DatabaseStorage();
