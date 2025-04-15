@@ -2,7 +2,11 @@ import {
   feeds, type Feed, type InsertFeed,
   categories, type Category, type InsertCategory,
   articles, type Article, type InsertArticle,
-  type FeedWithArticleCount, type CategoryWithFeedCount
+  type FeedWithArticleCount, type CategoryWithFeedCount,
+  userProfiles, type UserProfile, type InsertUserProfile,
+  articleSummaries, type ArticleSummary, type InsertArticleSummary,
+  recommendations, type Recommendation, type InsertRecommendation,
+  type ArticleWithSummary
 } from "@shared/schema";
 
 // We don't have users in the schema yet, so let's define them here for now
