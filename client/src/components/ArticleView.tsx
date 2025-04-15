@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import { Clock, Bookmark, Share, ExternalLink } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Clock, Bookmark, Share, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Article, Feed } from '@/lib/types';
 import { format } from 'date-fns';
@@ -17,6 +17,19 @@ interface ArticleViewProps {
 
 export default function ArticleView({ article, feed, isLoading }: ArticleViewProps) {
   const { toast } = useToast();
+  const [isLoadingExternalContent, setIsLoadingExternalContent] = useState(false);
+  
+  // Fetch external content if we don't have article content
+  const { 
+    data: externalContent,
+    isLoading: externalContentLoading,
+    refetch: refetchExternalContent
+  } = useQuery<{content: string}>({
+    queryKey: article ? ['/api/articles', article.id, 'content'] : [''],
+    enabled: !!article && (!article.content || article.content.length < 100),
+    staleTime: Infinity,
+    retry: 1
+  });
 
   // Mutation for toggling favorite status
   const toggleFavoriteMutation = useMutation({
@@ -174,24 +187,55 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
               />
             )}
             
-            <div 
-              className="prose prose-sm md:prose-base prose-blue max-w-none"
-              dangerouslySetInnerHTML={{ 
-                __html: article.content || article.description || '' 
-              }}
-            />
-            
-            <div className="mt-6 md:mt-8 border-t border-gray-200 pt-4">
-              <a 
-                href={article.link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:underline inline-flex items-center text-sm md:text-base"
-              >
-                Read original article
-                <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
-              </a>
-            </div>
+            {externalContentLoading ? (
+              <div className="space-y-4 py-4">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <div className="flex justify-center mt-4">
+                  <p className="text-sm text-gray-500">Fetching original article content...</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div 
+                  className="prose prose-sm md:prose-base prose-blue max-w-none"
+                  dangerouslySetInnerHTML={{ 
+                    __html: 
+                      // Show external content if available, fallback to article content or description
+                      (externalContent?.content) || 
+                      article.content || 
+                      article.description || 
+                      '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'
+                  }}
+                />
+                
+                <div className="flex justify-end mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetchExternalContent()}
+                    className="flex items-center gap-1"
+                    disabled={externalContentLoading}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Refresh content
+                  </Button>
+                </div>
+                
+                <div className="mt-6 md:mt-8 border-t border-gray-200 pt-4">
+                  <a 
+                    href={article.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline inline-flex items-center text-sm md:text-base"
+                  >
+                    Read original article
+                    <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
+                  </a>
+                </div>
+              </>
+            )}
           </div>
         )}
       </ScrollArea>

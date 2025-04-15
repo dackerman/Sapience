@@ -85,3 +85,48 @@
   margin: 1rem 0;
   border-radius: 0.375rem;
 }
+
+/* External content styling */
+.prose {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto !important;
+  margin: 1rem 0;
+  border-radius: 0.375rem;
+}
+
+.prose iframe {
+  max-width: 100%;
+  border: none;
+  margin: 1rem 0;
+}
+
+.prose pre {
+  background-color: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.prose table td,
+.prose table th {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem;
+}
+
+.prose blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1rem;
+  font-style: italic;
+  margin: 1rem 0;
+}

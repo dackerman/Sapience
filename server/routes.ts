@@ -472,5 +472,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint to fetch external article content
+  app.get("/api/articles/:id/content", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid article ID" });
+      
+      const article = await storage.getArticleById(id);
+      if (!article) return res.status(404).json({ message: "Article not found" });
+      
+      // If we already have content, return it
+      if (article.content) {
+        return res.json({ content: article.content });
+      }
+      
+      // Otherwise, fetch the content from the external URL
+      try {
+        console.log(`Fetching content from ${article.link}`);
+        const response = await axios.get(article.link, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'RSS Reader/1.0'
+          }
+        });
+        
+        // Extract and return the HTML content
+        const content = response.data;
+        
+        // Update the article in the database with the fetched content
+        await storage.updateArticle(id, { content });
+        
+        res.json({ content });
+      } catch (fetchError) {
+        console.error(`Error fetching article content: ${fetchError.message}`);
+        res.status(500).json({ 
+          message: "Failed to fetch article content", 
+          error: fetchError.message 
+        });
+      }
+    } catch (error) {
+      console.error("Error in content fetch endpoint:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   return httpServer;
 }
