@@ -51,6 +51,26 @@ export interface IStorage {
   updateArticle(id: number, article: Partial<Article>): Promise<Article | undefined>;
   deleteArticle(id: number): Promise<boolean>;
   deleteArticlesByFeedId(feedId: number): Promise<boolean>;
+  
+  // User Profile methods
+  getUserProfile(): Promise<UserProfile | undefined>;
+  createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  updateUserProfile(profile: Partial<UserProfile>): Promise<UserProfile | undefined>;
+  
+  // Article Summary methods
+  getArticleSummary(articleId: number): Promise<ArticleSummary | undefined>;
+  getArticleSummaries(processedSince?: Date): Promise<ArticleSummary[]>;
+  createArticleSummary(summary: InsertArticleSummary): Promise<ArticleSummary>;
+  
+  // Recommendation methods
+  getRecommendations(viewed?: boolean): Promise<Recommendation[]>;
+  getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined>;
+  createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation>;
+  markRecommendationAsViewed(id: number): Promise<Recommendation | undefined>;
+  
+  // Combined query for "For You" page
+  getRecommendedArticles(): Promise<ArticleWithSummary[]>;
+  getUnprocessedArticles(limit?: number): Promise<Article[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -284,11 +304,60 @@ export class MemStorage implements IStorage {
     
     return true;
   }
+
+  // Stub implementations for "For You" feature - not used in MemStorage
+  async getUserProfile(): Promise<UserProfile | undefined> {
+    return undefined;
+  }
+  
+  async createUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    throw new Error("Not implemented in MemStorage");
+  }
+  
+  async updateUserProfile(profile: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    return undefined;
+  }
+  
+  async getArticleSummary(articleId: number): Promise<ArticleSummary | undefined> {
+    return undefined;
+  }
+  
+  async getArticleSummaries(processedSince?: Date): Promise<ArticleSummary[]> {
+    return [];
+  }
+  
+  async createArticleSummary(summary: InsertArticleSummary): Promise<ArticleSummary> {
+    throw new Error("Not implemented in MemStorage");
+  }
+  
+  async getRecommendations(viewed?: boolean): Promise<Recommendation[]> {
+    return [];
+  }
+  
+  async getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined> {
+    return undefined;
+  }
+  
+  async createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation> {
+    throw new Error("Not implemented in MemStorage");
+  }
+  
+  async markRecommendationAsViewed(id: number): Promise<Recommendation | undefined> {
+    return undefined;
+  }
+  
+  async getRecommendedArticles(): Promise<ArticleWithSummary[]> {
+    return [];
+  }
+  
+  async getUnprocessedArticles(limit?: number): Promise<Article[]> {
+    return [];
+  }
 }
 
 // Database implementation
 import { db } from "./db";
-import { and, eq, desc, asc, isNull, count } from "drizzle-orm";
+import { and, eq, desc, asc, isNull, count, sql, not } from "drizzle-orm";
 
 export class DatabaseStorage implements IStorage {
   // User methods - Not implemented for PostgreSQL as we don't have users table
@@ -567,6 +636,256 @@ export class DatabaseStorage implements IStorage {
       .where(eq(articles.feedId, feedId));
     
     return true;
+  }
+
+  // User Profile methods
+  async getUserProfile(): Promise<UserProfile | undefined> {
+    // Since we only have one user profile in this version, just get the first one
+    const [profile] = await db
+      .select()
+      .from(userProfiles)
+      .limit(1);
+    
+    return profile;
+  }
+
+  async createUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    // First check if a profile already exists
+    const existingProfile = await this.getUserProfile();
+    
+    if (existingProfile) {
+      // If a profile already exists, update it instead
+      return this.updateUserProfile(profile) as Promise<UserProfile>;
+    }
+
+    const [newProfile] = await db
+      .insert(userProfiles)
+      .values({
+        ...profile,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    return newProfile;
+  }
+
+  async updateUserProfile(profileUpdate: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    const existingProfile = await this.getUserProfile();
+    
+    if (!existingProfile) {
+      return undefined;
+    }
+
+    const [updatedProfile] = await db
+      .update(userProfiles)
+      .set({
+        ...profileUpdate,
+        updatedAt: new Date()
+      })
+      .where(eq(userProfiles.id, existingProfile.id))
+      .returning();
+    
+    return updatedProfile;
+  }
+
+  // Article Summary methods
+  async getArticleSummary(articleId: number): Promise<ArticleSummary | undefined> {
+    const [summary] = await db
+      .select()
+      .from(articleSummaries)
+      .where(eq(articleSummaries.articleId, articleId));
+    
+    return summary;
+  }
+
+  async getArticleSummaries(processedSince?: Date): Promise<ArticleSummary[]> {
+    if (processedSince) {
+      const results = await db
+        .select()
+        .from(articleSummaries)
+        .where(sql`${articleSummaries.processedAt} >= ${processedSince}`);
+      
+      return results;
+    }
+    
+    const results = await db
+      .select()
+      .from(articleSummaries);
+    
+    return results;
+  }
+
+  async createArticleSummary(summary: InsertArticleSummary): Promise<ArticleSummary> {
+    // Check if summary already exists for this article
+    const existingSummary = await this.getArticleSummary(summary.articleId);
+    
+    if (existingSummary) {
+      // If a summary already exists, update it
+      const [updatedSummary] = await db
+        .update(articleSummaries)
+        .set({
+          articleId: summary.articleId,
+          summary: summary.summary,
+          keywords: summary.keywords,
+          processedAt: new Date()
+        })
+        .where(eq(articleSummaries.id, existingSummary.id))
+        .returning();
+      
+      return updatedSummary;
+    }
+
+    // Insert a new summary
+    const summaryToInsert = {
+      articleId: summary.articleId,
+      summary: summary.summary,
+      keywords: summary.keywords || []
+    };
+
+    const [newSummary] = await db
+      .insert(articleSummaries)
+      .values(summaryToInsert)
+      .returning();
+    
+    return newSummary;
+  }
+
+  // Recommendation methods
+  async getRecommendations(viewed?: boolean): Promise<Recommendation[]> {
+    if (viewed !== undefined) {
+      const results = await db
+        .select()
+        .from(recommendations)
+        .where(eq(recommendations.viewed, viewed));
+      
+      return results;
+    }
+    
+    const results = await db
+      .select()
+      .from(recommendations);
+    
+    return results;
+  }
+
+  async getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined> {
+    const [recommendation] = await db
+      .select()
+      .from(recommendations)
+      .where(eq(recommendations.articleId, articleId));
+    
+    return recommendation;
+  }
+
+  async createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation> {
+    // Check if a recommendation already exists for this article
+    const existingRecommendation = await this.getRecommendationForArticle(recommendation.articleId);
+    
+    if (existingRecommendation) {
+      // If a recommendation already exists, update it
+      const [updatedRecommendation] = await db
+        .update(recommendations)
+        .set({
+          ...recommendation,
+          createdAt: new Date()
+        })
+        .where(eq(recommendations.id, existingRecommendation.id))
+        .returning();
+      
+      return updatedRecommendation;
+    }
+
+    const [newRecommendation] = await db
+      .insert(recommendations)
+      .values({
+        ...recommendation,
+        viewed: false,
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return newRecommendation;
+  }
+
+  async markRecommendationAsViewed(id: number): Promise<Recommendation | undefined> {
+    const [recommendation] = await db
+      .update(recommendations)
+      .set({ viewed: true })
+      .where(eq(recommendations.id, id))
+      .returning();
+    
+    return recommendation;
+  }
+
+  // Combined queries for "For You" page
+  async getRecommendedArticles(): Promise<ArticleWithSummary[]> {
+    // Get all unviewed recommendations
+    const unviewedRecs = await this.getRecommendations(false);
+    
+    if (unviewedRecs.length === 0) {
+      return [];
+    }
+
+    const result: ArticleWithSummary[] = [];
+    
+    for (const rec of unviewedRecs) {
+      // Get the article
+      const article = await this.getArticleById(rec.articleId);
+      if (!article) continue;
+      
+      // Get the summary
+      const summary = await this.getArticleSummary(rec.articleId);
+      
+      // Add to results
+      result.push({
+        ...article,
+        summary,
+        recommendation: rec
+      });
+    }
+    
+    // Sort by recommendation score (highest first) and then by publication date
+    return result.sort((a, b) => {
+      if (a.recommendation && b.recommendation) {
+        if (a.recommendation.relevanceScore !== b.recommendation.relevanceScore) {
+          return b.recommendation.relevanceScore - a.recommendation.relevanceScore;
+        }
+      }
+      
+      if (!a.pubDate || !b.pubDate) return 0;
+      return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+    });
+  }
+
+  async getUnprocessedArticles(limit = 10): Promise<Article[]> {
+    // Get articles that don't have summaries yet
+    const articleIds = await db
+      .select({
+        articleId: articleSummaries.articleId
+      })
+      .from(articleSummaries);
+    
+    const processedIds = articleIds.map(item => item.articleId);
+    
+    let query = db
+      .select()
+      .from(articles)
+      .orderBy(desc(articles.pubDate))
+      .limit(limit);
+    
+    if (processedIds.length > 0) {
+      query = db
+        .select()
+        .from(articles)
+        .where(
+          sql`${articles.id} NOT IN (${processedIds.join(',')})`
+        )
+        .orderBy(desc(articles.pubDate))
+        .limit(limit);
+    }
+    
+    return query;
   }
 }
 
