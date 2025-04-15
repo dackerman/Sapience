@@ -458,5 +458,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint for AI-powered "For You" page recommendations
+  app.get("/api/recommendations", async (req, res) => {
+    try {
+      const recommendedArticles = await storage.getRecommendedArticles();
+      res.json(recommendedArticles);
+    } catch (error) {
+      console.error("Error fetching recommendations:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch recommendations", 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   return httpServer;
 }

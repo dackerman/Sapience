@@ -94,63 +94,67 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
-      <div className="border-b border-gray-200 py-3 px-6 flex justify-between items-center">
-        <div>
+      <div className="border-b border-gray-200 py-3 px-4 md:px-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+        <div className="flex-1 min-w-0">
           {isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-6 w-96" />
+              <Skeleton className="h-6 w-full md:w-96" />
             </div>
           ) : (
             <>
-              <div className="flex items-center text-xs text-gray-500 mb-1">
+              <div className="flex flex-wrap items-center text-xs text-gray-500 mb-1 gap-1">
                 {article.category && (
                   <span className="font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full mr-2">
                     {article.category.split(',')[0]}
                   </span>
                 )}
-                <span>{feed?.title}</span>
-                <span className="mx-2">•</span>
-                <Clock className="h-3 w-3 mr-1" />
-                <span>{formatDate(article.pubDate)}</span>
+                <span className="truncate">{feed?.title}</span>
+                <span className="mx-1 md:mx-2">•</span>
+                <div className="flex items-center">
+                  <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <span>{formatDate(article.pubDate)}</span>
+                </div>
               </div>
-              <h2 className="text-xl font-semibold">{article.title}</h2>
+              <h2 className="text-lg md:text-xl font-semibold line-clamp-2">{article.title}</h2>
             </>
           )}
         </div>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 self-end md:self-center">
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={handleToggleFavorite}
-            className={article.favorite ? 'text-yellow-500' : ''}
+            className={`${article.favorite ? 'text-yellow-500' : ''} h-8 w-8 p-0`}
             title={article.favorite ? 'Remove from bookmarks' : 'Add to bookmarks'}
           >
-            <Bookmark className="h-5 w-5" fill={article.favorite ? 'currentColor' : 'none'} />
+            <Bookmark className="h-4 w-4" fill={article.favorite ? 'currentColor' : 'none'} />
           </Button>
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={shareArticle}
+            className="h-8 w-8 p-0"
             title="Share article"
           >
-            <Share className="h-5 w-5" />
+            <Share className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={openExternalLink}
+            className="h-8 w-8 p-0"
             title="Open in new tab"
           >
-            <ExternalLink className="h-5 w-5" />
+            <ExternalLink className="h-4 w-4" />
           </Button>
         </div>
       </div>
       
-      <ScrollArea className="flex-1 overflow-y-auto p-6">
+      <ScrollArea className="flex-1 overflow-y-auto p-4 md:p-6">
         {isLoading ? (
           <div className="space-y-4 max-w-3xl mx-auto">
-            <Skeleton className="h-48 w-full rounded-lg mb-6" />
+            <Skeleton className="h-36 md:h-48 w-full rounded-lg mb-6" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-3/4" />
@@ -162,7 +166,7 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
               <img 
                 src={article.imageUrl} 
                 alt={article.title} 
-                className="w-full rounded-lg mb-6 max-h-96 object-cover"
+                className="w-full rounded-lg mb-4 md:mb-6 max-h-64 md:max-h-96 object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -171,21 +175,21 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
             )}
             
             <div 
-              className="prose prose-blue max-w-none"
+              className="prose prose-sm md:prose-base prose-blue max-w-none"
               dangerouslySetInnerHTML={{ 
                 __html: article.content || article.description || '' 
               }}
             />
             
-            <div className="mt-8 border-t border-gray-200 pt-4">
+            <div className="mt-6 md:mt-8 border-t border-gray-200 pt-4">
               <a 
                 href={article.link} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-primary hover:underline inline-flex items-center"
+                className="text-primary hover:underline inline-flex items-center text-sm md:text-base"
               >
                 Read original article
-                <ExternalLink className="ml-1 h-4 w-4" />
+                <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
               </a>
             </div>
           </div>

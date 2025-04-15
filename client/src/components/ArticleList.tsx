@@ -69,7 +69,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
 
   if (!feedId) {
     return (
-      <div className="w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div className="w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center p-6">
             <h3 className="text-lg font-medium text-gray-500">Select a feed to view articles</h3>
@@ -80,9 +80,9 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
   }
 
   return (
-    <div className="w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
-      <div className="py-3 px-4 border-b border-gray-200 flex items-center justify-between bg-white">
-        <div className="flex items-center">
+    <div className="w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div className="py-3 px-4 border-b border-gray-200 flex flex-wrap items-center justify-between bg-white gap-2">
+        <div className="flex items-center mr-auto">
           {feedLoading ? (
             <Skeleton className="h-6 w-48" />
           ) : (
@@ -94,18 +94,19 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
             </>
           )}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <Button 
             variant="ghost"
             size="icon"
             onClick={handleRefresh}
             disabled={isRefreshing}
             title="Refresh feed"
+            className="h-8 w-8"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[140px] h-8 text-xs">
+            <SelectTrigger className="w-[110px] h-8 text-xs">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -138,7 +139,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
             <div 
               key={article.id}
               className={`article-item border-b border-gray-200 px-4 py-3 hover:bg-gray-50 cursor-pointer ${
-                selectedArticle?.id === article.id ? 'bg-blue-50' : ''
+                selectedArticle?.id === article.id ? 'bg-blue-50 md:bg-blue-50' : ''
               }`}
               onClick={() => onSelectArticle(article)}
             >
