@@ -875,11 +875,12 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     if (processedIds.length > 0) {
+      // Use parameterized query with not(inArray) for safe parameter passing
       query = db
         .select()
         .from(articles)
         .where(
-          sql`${articles.id} NOT IN (${processedIds.join(',')})`
+          not(inArray(articles.id, processedIds))
         )
         .orderBy(desc(articles.pubDate))
         .limit(limit);
