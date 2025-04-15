@@ -29,7 +29,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     data: feed,
     isLoading: feedLoading
   } = useQuery<Feed>({
-    queryKey: feedId ? [`/api/feeds/${feedId}`] : null,
+    queryKey: feedId ? [`/api/feeds/${feedId}`] : ['empty-feed'],
     enabled: !!feedId
   });
 
@@ -39,8 +39,18 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     isLoading: articlesLoading,
     refetch: refetchArticles
   } = useQuery<Article[]>({
-    queryKey: feedId ? [`/api/articles?feedId=${feedId}&sortBy=${sortBy}`] : null,
+    queryKey: feedId ? [`/api/articles?feedId=${feedId}&sortBy=${sortBy}`] : ['empty-articles'],
     enabled: !!feedId
+  });
+  
+  // Fetch article contents for the feed
+  const {
+    data: articleContents,
+    isLoading: contentsLoading
+  } = useQuery<{articles: Article[]}>({
+    queryKey: feedId ? ['/api/feeds', feedId, 'contents'] : ['empty-contents'],
+    enabled: !!feedId && articles.length > 0,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
   // Auto-select the first article when feed changes or articles load
@@ -134,48 +144,70 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">No articles found</p>
           </div>
+        ) : contentsLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Loading article contents...</p>
+          </div>
         ) : (
-          articles.map(article => (
-            <div 
-              key={article.id}
-              className={`article-item border-b border-gray-200 px-4 py-3 hover:bg-gray-50 cursor-pointer ${
-                selectedArticle?.id === article.id ? 'bg-blue-50 md:bg-blue-50' : ''
-              }`}
-              onClick={() => onSelectArticle(article)}
-            >
-              <div className="flex items-center justify-between mb-1">
-                {article.category ? (
-                  <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                    {article.category.split(',')[0]}
-                  </span>
+          articles.map(article => {
+            // Find enhanced article from content endpoint if available
+            const enhancedArticle = articleContents?.articles?.find(a => a.id === article.id) || article;
+            
+            return (
+              <div 
+                key={article.id}
+                className={`article-item border-b border-gray-200 px-4 py-3 hover:bg-gray-50 cursor-pointer ${
+                  selectedArticle?.id === article.id ? 'bg-blue-50 md:bg-blue-50' : ''
+                }`}
+                onClick={() => onSelectArticle(enhancedArticle)}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  {article.category ? (
+                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      {article.category.split(',')[0]}
+                    </span>
+                  ) : (
+                    <span></span>
+                  )}
+                  <span className="text-xs text-gray-500">{getTimeSince(article.pubDate)}</span>
+                </div>
+                <h3 className={`font-semibold text-gray-900 mb-1 ${article.read ? 'text-gray-600' : ''}`}>
+                  {article.title}
+                </h3>
+                
+                {enhancedArticle.content && enhancedArticle.content.length > 100 ? (
+                  <div className="article-preview">
+                    <div 
+                      className="text-gray-600 text-sm prose prose-sm"
+                      dangerouslySetInnerHTML={{ 
+                        __html: enhancedArticle.content
+                          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+                          .replace(/<iframe.*?<\/iframe>/gs, '') // Remove iframes
+                          .replace(/<style.*?<\/style>/gs, '') // Remove style tags
+                      }}
+                    />
+                  </div>
+                ) : article.content ? (
+                  <div 
+                    className="text-gray-600 text-sm article-preview"
+                    dangerouslySetInnerHTML={{ 
+                      __html: article.content
+                        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+                        .substring(0, 500) + (article.content.length > 500 ? '...' : '')
+                    }}
+                  />
+                ) : article.description ? (
+                  <p className="text-gray-600 text-sm line-clamp-2">
+                    {article.description}
+                  </p>
                 ) : (
-                  <span></span>
+                  <p className="text-gray-600 text-sm italic">
+                    No preview available
+                  </p>
                 )}
-                <span className="text-xs text-gray-500">{getTimeSince(article.pubDate)}</span>
               </div>
-              <h3 className={`font-semibold text-gray-900 mb-1 ${article.read ? 'text-gray-600' : ''}`}>
-                {article.title}
-              </h3>
-              {article.content ? (
-                <div 
-                  className="text-gray-600 text-sm article-preview"
-                  dangerouslySetInnerHTML={{ 
-                    __html: article.content
-                      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
-                      .substring(0, 500) + (article.content.length > 500 ? '...' : '')
-                  }}
-                />
-              ) : article.description ? (
-                <p className="text-gray-600 text-sm line-clamp-2">
-                  {article.description}
-                </p>
-              ) : (
-                <p className="text-gray-600 text-sm italic">
-                  No preview available
-                </p>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

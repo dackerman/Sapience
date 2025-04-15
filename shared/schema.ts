@@ -143,5 +143,6 @@ export type FeedWithArticleCount = Feed & { articleCount: number, unreadCount: n
 export type CategoryWithFeedCount = Category & { feedCount: number };
 export type ArticleWithSummary = Article & { 
   summary?: ArticleSummary, 
-  recommendation?: Recommendation 
+  recommendation?: Recommendation,
+  hasFullContent?: boolean
 };

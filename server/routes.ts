@@ -472,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Endpoint to fetch external article content
+  // Endpoint to fetch external article content for a single article
   app.get("/api/articles/:id/content", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -504,15 +504,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json({ content });
       } catch (fetchError) {
-        console.error(`Error fetching article content: ${fetchError.message}`);
+        console.error(`Error fetching article content: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
         res.status(500).json({ 
           message: "Failed to fetch article content", 
-          error: fetchError.message 
+          error: fetchError instanceof Error ? fetchError.message : String(fetchError)
         });
       }
     } catch (error) {
       console.error("Error in content fetch endpoint:", error);
       res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Endpoint to fetch article contents for a feed
+  app.get("/api/feeds/:id/contents", async (req, res) => {
+    try {
+      const feedId = parseInt(req.params.id);
+      if (isNaN(feedId)) return res.status(400).json({ message: "Invalid feed ID" });
+      
+      // Get articles for this feed
+      const articles = await storage.getArticlesByFeedId(feedId);
+      if (!articles.length) {
+        return res.json({ articles: [] });
+      }
+      
+      // Process articles (fetch content for those without content)
+      const processedArticles = [];
+      const fetchPromises = [];
+      
+      for (const article of articles) {
+        // Check if article already has content
+        if (article.content && article.content.length > 100) {
+          processedArticles.push({
+            ...article,
+            hasFullContent: true
+          });
+        } else {
+          // Queue up this article for content fetching
+          fetchPromises.push(
+            (async () => {
+              try {
+                console.log(`Batch fetching content for article ${article.id} from ${article.link}`);
+                const response = await axios.get(article.link, {
+                  timeout: 8000,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                  }
+                });
+                
+                // Extract content
+                const content = response.data;
+                
+                // Update in database
+                await storage.updateArticle(article.id, { content });
+                
+                // Add to processed articles
+                processedArticles.push({
+                  ...article,
+                  content,
+                  hasFullContent: true
+                });
+              } catch (fetchError) {
+                console.error(`Error batch fetching content for article ${article.id}: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+                // Add original article without content
+                processedArticles.push({
+                  ...article,
+                  hasFullContent: false
+                });
+              }
+            })()
+          );
+        }
+      }
+      
+      // Wait for all fetch operations to complete (with a timeout)
+      if (fetchPromises.length > 0) {
+        await Promise.allSettled(fetchPromises);
+      }
+      
+      // Make sure we return a proper response
+      res.json({ articles: processedArticles });
+    } catch (error) {
+      console.error("Error in feed contents endpoint:", error);
+      res.status(500).json({ message: "Server error", error: String(error) });
     }
   });
 
