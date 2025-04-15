@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { RssIcon, Menu, RefreshCw, Plus } from 'lucide-react';
+import { RssIcon, Menu, RefreshCw, Plus, Sparkles } from 'lucide-react';
 import { useFeedActions } from '@/hooks/useFeedActions';
 import AddFeedModal from './AddFeedModal';
+import { Link, useLocation } from 'wouter';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -11,6 +12,7 @@ interface HeaderProps {
 export default function Header({ toggleSidebar }: HeaderProps) {
   const [showAddFeedModal, setShowAddFeedModal] = useState(false);
   const { refreshAllFeeds, isRefreshing } = useFeedActions();
+  const [location] = useLocation();
 
   const handleRefreshFeeds = async () => {
     await refreshAllFeeds();
