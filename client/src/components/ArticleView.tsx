@@ -8,6 +8,7 @@ import { Article, Feed } from '@/lib/types';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import IframeArticle from './IframeArticle';
 
 interface ArticleViewProps {
   article: Article | null;
@@ -198,16 +199,14 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
               </div>
             ) : (
               <>
-                <div 
-                  className="prose prose-sm md:prose-base prose-blue max-w-none"
-                  dangerouslySetInnerHTML={{ 
-                    __html: 
-                      // Show external content if available, fallback to article content or description
-                      (externalContent?.content) || 
-                      article.content || 
-                      article.description || 
-                      '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'
-                  }}
+                {/* Use IframeArticle to isolate external CSS */}
+                <IframeArticle 
+                  content={(externalContent?.content) || 
+                          article.content || 
+                          article.description || 
+                          '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'}
+                  title={article.title}
+                  maxHeight={2000} // Use a large value to show full content
                 />
                 
                 <div className="flex justify-end mt-4">

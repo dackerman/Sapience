@@ -13,6 +13,7 @@ import { Article, Feed } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useFeedActions } from '@/hooks/useFeedActions';
 import { Skeleton } from '@/components/ui/skeleton';
+import IframeArticle from './IframeArticle';
 
 interface ArticleListProps {
   feedId: number | null;
@@ -176,15 +177,11 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
                 </h3>
                 
                 {enhancedArticle.content && enhancedArticle.content.length > 100 ? (
-                  <div className="article-preview">
-                    <div 
-                      className="text-gray-600 text-sm prose prose-sm"
-                      dangerouslySetInnerHTML={{ 
-                        __html: enhancedArticle.content
-                          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
-                          .replace(/<iframe.*?<\/iframe>/gs, '') // Remove iframes
-                          .replace(/<style.*?<\/style>/gs, '') // Remove style tags
-                      }}
+                  <div className="article-preview-iframe">
+                    <IframeArticle 
+                      content={enhancedArticle.content}
+                      title={article.title}
+                      maxHeight={220}
                     />
                   </div>
                 ) : article.content ? (
