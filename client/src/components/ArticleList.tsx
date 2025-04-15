@@ -156,9 +156,24 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
               <h3 className={`font-semibold text-gray-900 mb-1 ${article.read ? 'text-gray-600' : ''}`}>
                 {article.title}
               </h3>
-              <p className="text-gray-600 text-sm line-clamp-2">
-                {article.description}
-              </p>
+              {article.content ? (
+                <div 
+                  className="text-gray-600 text-sm article-preview"
+                  dangerouslySetInnerHTML={{ 
+                    __html: article.content
+                      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+                      .substring(0, 500) + (article.content.length > 500 ? '...' : '')
+                  }}
+                />
+              ) : article.description ? (
+                <p className="text-gray-600 text-sm line-clamp-2">
+                  {article.description}
+                </p>
+              ) : (
+                <p className="text-gray-600 text-sm italic">
+                  No preview available
+                </p>
+              )}
             </div>
           ))
         )}

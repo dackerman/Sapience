@@ -11,3 +11,77 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Article content styling */
+.article-preview {
+  overflow: hidden;
+  max-height: 4.5rem; /* Adjust based on your line-height */
+  position: relative;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.article-preview::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+  height: 1.5rem;
+  background: linear-gradient(to right, transparent, white);
+}
+
+/* Hide complex elements in preview */
+.article-preview img,
+.article-preview iframe,
+.article-preview video,
+.article-preview audio,
+.article-preview blockquote,
+.article-preview pre,
+.article-preview code,
+.article-preview table,
+.article-preview figure,
+.article-preview svg,
+.article-preview hr,
+.article-preview form,
+.article-preview button,
+.article-preview input {
+  display: none;
+}
+
+/* Normalize headings in preview */
+.article-preview h1,
+.article-preview h2,
+.article-preview h3,
+.article-preview h4,
+.article-preview h5,
+.article-preview h6 {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+  padding: 0;
+  display: inline;
+}
+
+/* Flatten paragraphs */
+.article-preview p,
+.article-preview div,
+.article-preview span,
+.article-preview li {
+  margin: 0;
+  padding: 0;
+  display: inline;
+}
+
+.article-content {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.article-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border-radius: 0.375rem;
+}
