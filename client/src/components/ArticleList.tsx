@@ -43,16 +43,6 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     queryKey: feedId ? [`/api/articles?feedId=${feedId}&sortBy=${sortBy}`] : ['empty-articles'],
     enabled: !!feedId
   });
-  
-  // Fetch article contents for the feed
-  const {
-    data: articleContents,
-    isLoading: contentsLoading
-  } = useQuery<{articles: Article[]}>({
-    queryKey: feedId ? ['/api/feeds', feedId, 'contents'] : ['empty-contents'],
-    enabled: !!feedId && articles.length > 0,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-  });
 
   // Auto-select the first article when feed changes or articles load
   useEffect(() => {
@@ -68,7 +58,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     refetchArticles();
   };
 
-  const getTimeSince = (date?: Date | string) => {
+  const getTimeSince = (date?: Date | string | null) => {
     if (!date) return '';
     
     try {
@@ -99,9 +89,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
           ) : (
             <>
               <h2 className="text-lg font-semibold">{feed?.title}</h2>
-              {feed && feed.unreadCount > 0 && (
-                <span className="ml-2 text-xs text-gray-500 mt-0.5">{feed.unreadCount} unread</span>
-              )}
+              {/* Unread count can be added here when implemented */}
             </>
           )}
         </div>
@@ -145,22 +133,15 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">No articles found</p>
           </div>
-        ) : contentsLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">Loading article contents...</p>
-          </div>
         ) : (
           articles.map(article => {
-            // Find enhanced article from content endpoint if available
-            const enhancedArticle = articleContents?.articles?.find(a => a.id === article.id) || article;
-            
             return (
               <div 
                 key={article.id}
                 className={`article-item border-b border-gray-200 px-4 py-3 hover:bg-gray-50 cursor-pointer ${
                   selectedArticle?.id === article.id ? 'bg-blue-50 md:bg-blue-50' : ''
                 }`}
-                onClick={() => onSelectArticle(enhancedArticle)}
+                onClick={() => onSelectArticle(article)}
               >
                 <div className="flex items-center justify-between mb-1">
                   {article.category ? (
@@ -176,15 +157,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
                   {article.title}
                 </h3>
                 
-                {enhancedArticle.content && enhancedArticle.content.length > 100 ? (
-                  <div className="article-preview-iframe">
-                    <IframeArticle 
-                      content={enhancedArticle.content}
-                      title={article.title}
-                      maxHeight={220}
-                    />
-                  </div>
-                ) : article.content ? (
+                {article.content ? (
                   <div 
                     className="text-gray-600 text-sm article-preview"
                     dangerouslySetInnerHTML={{ 
