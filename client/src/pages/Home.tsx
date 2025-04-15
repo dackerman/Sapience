@@ -63,7 +63,7 @@ export default function Home() {
         )}
         
         {!sidebarOpen && selectedFeed && !selectedArticle && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" key="article-list-view">
             <div className="bg-white border-b p-2 shadow-sm">
               <button 
                 onClick={() => setSidebarOpen(true)}
@@ -81,10 +81,13 @@ export default function Home() {
         )}
         
         {!sidebarOpen && selectedArticle && (
-          <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1 overflow-y-auto flex flex-col" key="article-detail-view">
             <div className="bg-white border-b p-2 shadow-sm">
               <button 
-                onClick={() => setSelectedArticle(null)}
+                onClick={() => {
+                  // Force state update in the correct order to prevent flickering
+                  setSelectedArticle(null);
+                }}
                 className="text-sm font-medium text-primary flex items-center"
               >
                 ← Back to articles
