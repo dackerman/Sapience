@@ -357,7 +357,7 @@ export class MemStorage implements IStorage {
 
 // Database implementation
 import { db } from "./db";
-import { and, eq, desc, asc, isNull, count, sql, not } from "drizzle-orm";
+import { and, eq, desc, asc, isNull, count, sql, not, notInArray } from "drizzle-orm";
 
 export class DatabaseStorage implements IStorage {
   // User methods - Not implemented for PostgreSQL as we don't have users table
@@ -727,7 +727,7 @@ export class DatabaseStorage implements IStorage {
         .set({
           articleId: summary.articleId,
           summary: summary.summary,
-          keywords: summary.keywords,
+          keywords: Array.isArray(summary.keywords) ? summary.keywords : [],
           processedAt: new Date()
         })
         .where(eq(articleSummaries.id, existingSummary.id))
@@ -740,7 +740,7 @@ export class DatabaseStorage implements IStorage {
     const summaryToInsert = {
       articleId: summary.articleId,
       summary: summary.summary,
-      keywords: summary.keywords || []
+      keywords: Array.isArray(summary.keywords) ? summary.keywords : summary.keywords ? [summary.keywords.toString()] : []
     };
 
     const [newSummary] = await db
@@ -875,15 +875,13 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     if (processedIds.length > 0) {
-      // Use parameterized query with not(inArray) for safe parameter passing
-      query = db
-        .select()
-        .from(articles)
-        .where(
-          not(inArray(articles.id, processedIds))
-        )
-        .orderBy(desc(articles.pubDate))
-        .limit(limit);
+      // Use db.query instead of db.execute to get properly typed results
+      const result = await db.query.articles.findMany({
+        where: sql`"id" NOT IN (${processedIds.join(',')})`,
+        orderBy: (articles, { desc }) => [desc(articles.pubDate)],
+        limit: limit
+      });
+      return result;
     }
     
     return query;
