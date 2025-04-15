@@ -727,7 +727,11 @@ export class DatabaseStorage implements IStorage {
         .set({
           articleId: summary.articleId,
           summary: summary.summary,
-          keywords: Array.isArray(summary.keywords) ? summary.keywords : [],
+          keywords: Array.isArray(summary.keywords) 
+            ? summary.keywords.map(String)
+            : summary.keywords 
+              ? [String(summary.keywords)] 
+              : [],
           processedAt: new Date()
         })
         .where(eq(articleSummaries.id, existingSummary.id))
@@ -736,11 +740,20 @@ export class DatabaseStorage implements IStorage {
       return updatedSummary;
     }
 
-    // Insert a new summary
+    // Insert a new summary with properly formatted keywords
+    // Ensure keywords is a properly formatted string array
+    let keywordsArray: string[] = [];
+    
+    if (Array.isArray(summary.keywords)) {
+      keywordsArray = summary.keywords.map(String);
+    } else if (summary.keywords) {
+      keywordsArray = [String(summary.keywords)];
+    }
+    
     const summaryToInsert = {
       articleId: summary.articleId,
       summary: summary.summary,
-      keywords: Array.isArray(summary.keywords) ? summary.keywords : summary.keywords ? [summary.keywords.toString()] : []
+      keywords: keywordsArray
     };
 
     const [newSummary] = await db
@@ -875,13 +888,12 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     if (processedIds.length > 0) {
-      // Use db.query instead of db.execute to get properly typed results
-      const result = await db.query.articles.findMany({
-        where: sql`"id" NOT IN (${processedIds.join(',')})`,
-        orderBy: (articles, { desc }) => [desc(articles.pubDate)],
-        limit: limit
-      });
-      return result;
+      // Use a more straightforward approach - fetch all and filter in-memory for small datasets
+      const allArticles = await query;
+      // Filter out articles that have already been processed
+      return allArticles.filter(article => 
+        !processedIds.includes(article.id)
+      );
     }
     
     return query;
