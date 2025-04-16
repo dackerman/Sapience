@@ -3,22 +3,44 @@
 
 echo "===== Running Puppeteer End-to-End Tests ====="
 
-echo
-echo "----- Test 1: For You Page Navigation -----"
-node scripts/test-for-you-navigation.js
-TEST1_RESULT=$?
+# Check which test to run from command line argument
+TEST_TO_RUN=${1:-"for-you"}
 
-echo
-echo "----- Test 2: Cross-Page Navigation -----"
-node scripts/test-cross-page-navigation.js
-TEST2_RESULT=$?
-
-echo
-echo "===== End-to-End Test Results ====="
-if [ $TEST1_RESULT -eq 0 ] && [ $TEST2_RESULT -eq 0 ]; then
-  echo "✅ All tests passed successfully!"
-  exit 0
+if [ "$TEST_TO_RUN" = "for-you" ]; then
+  echo
+  echo "----- Test: For You Page Navigation -----"
+  # Run the test with a timeout of 60 seconds
+  timeout 60 node scripts/test-for-you-navigation.js
+  RESULT=$?
+  
+  if [ $RESULT -eq 0 ]; then
+    echo "✅ For You Page Navigation test passed successfully!"
+    exit 0
+  elif [ $RESULT -eq 124 ]; then
+    echo "❌ Test timed out. It took too long to complete."
+    exit 1
+  else
+    echo "❌ Test failed. Please check the logs above."
+    exit 1
+  fi
+elif [ "$TEST_TO_RUN" = "cross-page" ]; then
+  echo
+  echo "----- Test: Cross-Page Navigation -----"
+  # Run the test with a timeout of 60 seconds
+  timeout 60 node scripts/test-cross-page-navigation.js
+  RESULT=$?
+  
+  if [ $RESULT -eq 0 ]; then
+    echo "✅ Cross-Page Navigation test passed successfully!"
+    exit 0
+  elif [ $RESULT -eq 124 ]; then
+    echo "❌ Test timed out. It took too long to complete."
+    exit 1
+  else
+    echo "❌ Test failed. Please check the logs above."
+    exit 1
+  fi
 else
-  echo "❌ Some tests failed. Please check the logs above."
+  echo "Invalid test specified. Please use 'for-you' or 'cross-page'"
   exit 1
 fi

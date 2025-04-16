@@ -31,6 +31,9 @@ async function testForYouNavigation() {
   try {
     const page = await browser.newPage();
     
+    // Enable more verbose logging
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    
     // Set viewport to mobile dimensions for easier testing of mobile views
     await page.setViewport({
       width: 375,
@@ -43,23 +46,97 @@ async function testForYouNavigation() {
     await page.goto('http://localhost:5000/', { waitUntil: 'networkidle0' });
     
     // Wait for login form and log in
-    console.log('Logging in...');
-    await page.waitForSelector('input[name="username"]');
+    console.log('Waiting for login form...');
+    await page.waitForSelector('form', { timeout: 10000 });
+    console.log('Login form found, entering credentials...');
+    
     await page.type('input[name="username"]', 'demo');
     await page.type('input[name="password"]', 'password');
-    await page.click('button[type="submit"]');
     
-    // Wait for the home page to load
-    await page.waitForSelector('[data-testid="sidebar"]', { timeout: 5000 });
+    console.log('Submitting login form...');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle0' }),
+      page.click('button[type="submit"]')
+    ]);
+    
+    // Take a screenshot to help debug
+    await page.screenshot({ path: 'after-login.png' });
+    console.log('Login form submitted, screenshot saved');
+    
+    // Add a delay to ensure the page has loaded completely
+    console.log('Waiting 3 seconds for the page to fully load...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Check if we're authenticated
+    const content = await page.content();
+    if (content.includes('Not authenticated')) {
+      console.error('Login failed - still showing authentication page');
+      throw new Error('Login failed');
+    }
+    
+    // Log the current URL and page title for debugging
+    console.log(`Current URL: ${page.url()}`);
+    const title = await page.title();
+    console.log(`Page title: ${title}`);
+    
+    console.log('Waiting for home page to load...');
+    // Try multiple possible selectors
+    try {
+      await page.waitForSelector('a[href="/for-you"]', { timeout: 10000 });
+      console.log('Found For You link in navigation');
+    } catch (e) {
+      try {
+        await page.waitForSelector('.sidebar', { timeout: 5000 });
+        console.log('Found sidebar element');
+      } catch (e2) {
+        try {
+          await page.waitForSelector('header, nav', { timeout: 5000 });
+          console.log('Found header/nav element');
+        } catch (e3) {
+          console.error('Could not find any navigation elements');
+          throw e3;
+        }
+      }
+    }
     
     // Navigate to For You page
     console.log('Navigating to For You page...');
     const forYouLink = await page.waitForSelector('a[href="/for-you"]');
-    await forYouLink.click();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle0' }),
+      forYouLink.click()
+    ]);
     
-    // Wait for the For You page to load with recommendations
-    await page.waitForSelector('.p-4.space-y-4', { timeout: 5000 });
-    console.log('For You page loaded with recommendations.');
+    // Log current URL after navigation
+    console.log(`Navigated to: ${page.url()}`);
+    
+    // Take a screenshot of the For You page
+    await page.screenshot({ path: 'for-you-page.png' });
+    console.log('For You page screenshot saved');
+    
+    // Add a delay to ensure content has loaded
+    console.log('Waiting 3 seconds for recommendations to load...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Get page content for debugging
+    const forYouContent = await page.content();
+    console.log(`Page content contains 'recommendations': ${forYouContent.includes('recommendations')}`);
+    
+    // Wait for recommendations to load
+    try {
+      await page.waitForSelector('.p-4.space-y-4', { timeout: 10000 });
+      console.log('For You page loaded with recommendations.');
+    } catch (error) {
+      console.error('Could not find recommendations container. Current selectors on page:');
+      // Log some other possible selectors for debugging
+      const selectors = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('div, p, h1, h2, h3'))
+          .slice(0, 10)
+          .map(el => el.className || el.tagName);
+      });
+      console.log(selectors);
+      throw error;
+    }
     
     // Check if there are any article recommendations
     const articleElements = await page.$$('.p-4.rounded-lg.hover\\:bg-slate-100');

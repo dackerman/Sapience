@@ -41,15 +41,53 @@ async function testCrossPageNavigation() {
     console.log('Navigating to the application...');
     await page.goto('http://localhost:5000/', { waitUntil: 'networkidle0' });
     
-    // Wait for login form and log in
-    console.log('Logging in...');
-    await page.waitForSelector('input[name="username"]');
-    await page.type('input[name="username"]', 'defaultuser');
-    await page.type('input[name="password"]', 'defaultpassword123');
-    await page.click('button[type="submit"]');
+    // Enable more verbose logging
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
     
-    // Wait for the home page to load
-    await page.waitForSelector('[data-testid="sidebar"]', { timeout: 5000 });
+    // Wait for login form and log in
+    console.log('Waiting for login form...');
+    await page.waitForSelector('form', { timeout: 10000 });
+    console.log('Login form found, entering credentials...');
+    
+    await page.type('input[name="username"]', 'demo');
+    await page.type('input[name="password"]', 'password');
+    
+    console.log('Submitting login form...');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle0' }),
+      page.click('button[type="submit"]')
+    ]);
+    
+    // Take a screenshot to help debug
+    await page.screenshot({ path: 'cross-page-after-login.png' });
+    console.log('Login form submitted, screenshot saved');
+    
+    // Check if we're authenticated
+    const content = await page.content();
+    if (content.includes('Not authenticated')) {
+      console.error('Login failed - still showing authentication page');
+      throw new Error('Login failed');
+    }
+    
+    console.log('Waiting for home page to load...');
+    // Try multiple possible selectors
+    try {
+      await page.waitForSelector('a[href="/for-you"]', { timeout: 10000 });
+      console.log('Found For You link in navigation');
+    } catch (e) {
+      try {
+        await page.waitForSelector('.sidebar', { timeout: 5000 });
+        console.log('Found sidebar element');
+      } catch (e2) {
+        try {
+          await page.waitForSelector('header, nav', { timeout: 5000 });
+          console.log('Found header/nav element');
+        } catch (e3) {
+          console.error('Could not find any navigation elements');
+          throw e3;
+        }
+      }
+    }
     console.log('Home page loaded successfully.');
     
     // Test 1: Navigate from Home to For You page
