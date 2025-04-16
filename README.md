@@ -2,6 +2,10 @@
 
 ![Sapience Banner](assets/sapience-banner.png)
 
+> **⚠️ AI Development Notice**: This application was built with AI assistance and is currently in early stages of development. Some features may be buggy or incomplete, but we're actively working to iron out these issues. Your patience and feedback are appreciated!
+
+**Live Demo**: [https://sapience.replit.app/](https://sapience.replit.app/)
+
 ## About Sapience
 
 Sapience is a modern, intelligent RSS reader application that enhances your content consumption experience with AI-powered features. The name "Sapience" reflects the application's ability to bring wisdom and intelligence to your reading experience.
