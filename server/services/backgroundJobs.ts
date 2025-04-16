@@ -138,7 +138,7 @@ export async function processNewArticles() {
  * Helper function to generate a recommendation for an existing article summary
  * This is used when regenerating recommendations after a user profile update
  */
-async function generateRecommendationForSummary(summary: ArticleSummary, userInterests: string) {
+async function generateRecommendationForSummary(summary: ArticleSummary, userId: number, userInterests: string) {
   // First get the article to access the title
   const article = await storage.getArticleById(summary.articleId);
   
@@ -160,13 +160,14 @@ async function generateRecommendationForSummary(summary: ArticleSummary, userInt
   // If it's relevant, save as a recommendation
   if (isRelevant && relevanceScore >= MIN_RELEVANCE_SCORE) {
     const recommendation: InsertRecommendation = {
+      userId,
       articleId: article.id,
       relevanceScore,
       reasonForRecommendation: reason
     };
     
     await storage.createRecommendation(recommendation);
-    console.log(`Created recommendation for article ${article.id} with score ${relevanceScore}`);
+    console.log(`Created recommendation for article ${article.id} with score ${relevanceScore} for user ${userId}`);
   } else {
     console.log(`Article ${article.id} not relevant enough (score: ${relevanceScore})`);
   }

@@ -59,7 +59,7 @@ export interface IStorage {
   deleteUserRecommendations(userId: number): Promise<boolean>;
   
   // Combined query for "For You" page
-  getRecommendedArticles(): Promise<ArticleWithSummary[]>;
+  getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]>;
   getUnprocessedArticles(limit?: number): Promise<Article[]>;
 }
 
@@ -330,11 +330,11 @@ export class MemStorage implements IStorage {
     throw new Error("Not implemented in MemStorage");
   }
   
-  async getRecommendations(viewed?: boolean): Promise<Recommendation[]> {
+  async getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]> {
     return [];
   }
   
-  async getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined> {
+  async getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined> {
     return undefined;
   }
   
@@ -350,7 +350,11 @@ export class MemStorage implements IStorage {
     return true; // Not applicable for MemStorage, but return true to indicate success
   }
   
-  async getRecommendedArticles(): Promise<ArticleWithSummary[]> {
+  async deleteUserRecommendations(userId: number): Promise<boolean> {
+    return true; // Not applicable for MemStorage, but return true to indicate success
+  }
+  
+  async getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]> {
     return [];
   }
   
@@ -888,9 +892,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Combined queries for "For You" page
-  async getRecommendedArticles(): Promise<ArticleWithSummary[]> {
-    // Get all unviewed recommendations
-    const unviewedRecs = await this.getRecommendations(false);
+  async getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]> {
+    // Get all unviewed recommendations for this user
+    const unviewedRecs = await this.getRecommendations(userId, false);
     
     if (unviewedRecs.length === 0) {
       return [];
