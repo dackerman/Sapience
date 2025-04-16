@@ -135,9 +135,43 @@ export async function processNewArticles() {
 }
 
 /**
- * Start all background jobs
- * This should be called when the server starts
+ * Helper function to generate a recommendation for an existing article summary
+ * This is used when regenerating recommendations after a user profile update
  */
+async function generateRecommendationForSummary(summary: ArticleSummary, userInterests: string) {
+  // First get the article to access the title
+  const article = await storage.getArticleById(summary.articleId);
+  
+  if (!article) {
+    console.log(`Cannot generate recommendation - article ${summary.articleId} not found`);
+    return;
+  }
+  
+  console.log(`Analyzing relevance for article: ${article.title}`);
+  
+  // Analyze if this article is relevant to the user's updated interests
+  const { isRelevant, relevanceScore, reason } = await analyzeArticleRelevance(
+    userInterests,
+    article.title,
+    summary.summary,
+    summary.keywords || []
+  );
+  
+  // If it's relevant, save as a recommendation
+  if (isRelevant && relevanceScore >= MIN_RELEVANCE_SCORE) {
+    const recommendation: InsertRecommendation = {
+      articleId: article.id,
+      relevanceScore,
+      reasonForRecommendation: reason
+    };
+    
+    await storage.createRecommendation(recommendation);
+    console.log(`Created recommendation for article ${article.id} with score ${relevanceScore}`);
+  } else {
+    console.log(`Article ${article.id} not relevant enough (score: ${relevanceScore})`);
+  }
+}
+
 export function startBackgroundJobs() {
   // Process new articles every 10 minutes
   const articleProcessingIntervalMs = 10 * 60 * 1000;
