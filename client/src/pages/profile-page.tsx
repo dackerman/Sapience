@@ -76,10 +76,12 @@ export default function ProfilePage() {
       return await res.json();
     },
     onSuccess: () => {
+      // Invalidate both the profile and recommendations data
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recommendations"] });
       toast({
         title: "Profile updated",
-        description: "Your interests have been saved successfully.",
+        description: "Your interests have been saved successfully and recommendations are being regenerated.",
       });
     },
     onError: (error: Error) => {
