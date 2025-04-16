@@ -1,72 +1,86 @@
-# Mobile Navigation Flow Test
+# Mobile Navigation Flow Testing Guide
 
-This document provides a step-by-step guide to manually test the mobile navigation flow in the RSS Reader application.
+This guide provides instructions for testing the mobile navigation flow in the RSS reader application. The application is designed to be fully responsive and provides a seamless experience on both desktop and mobile devices.
 
-## Prerequisites
+## Mobile Navigation States
 
-- Access to the RSS Reader application on a mobile device or using browser dev tools in mobile view
-- At least one feed configured with articles
+The mobile navigation flow has three main states:
 
-## Test 1: Basic Navigation Flow
+1. **Feeds Selection State**: The sidebar showing feed categories and feeds
+2. **Articles List State**: The list of articles from the selected feed
+3. **Article Detail State**: The full content view of a selected article
 
-### Steps:
+On mobile devices, these states are shown one at a time, with navigation controls to move between them.
 
-1. **Open the application**
-   - The sidebar with feeds should be visible by default on mobile
+## Manual Testing Steps
 
-2. **Select a feed from the sidebar**
-   - Click/tap on a feed (e.g., "Hacker News")
-   - Expected: The view should change to show the list of articles from that feed
-   - A "← Back to feeds" button should be visible at the top
+Follow these steps to manually test the mobile navigation flow:
 
-3. **Select an article from the list**
-   - Click/tap on an article title or preview
-   - Expected: The view should change to show the full article content
-   - A "← Back to articles" button should be visible at the top
+### Test Case 1: Basic Navigation Flow
 
-4. **Navigate back to the article list**
-   - Click/tap the "← Back to articles" button
-   - Expected: The view should return to the article list
+1. **Starting Point**: Open the application on a mobile device or using responsive mode in your browser's dev tools
+2. **Verify Initial State**: The feeds sidebar should be visible
+3. **Select a Feed**: Tap on a feed from the sidebar
+4. **Verify Articles List**: The article list for the selected feed should appear, and the sidebar should be hidden
+5. **Select an Article**: Tap on an article from the list
+6. **Verify Article Detail**: The full content of the article should be displayed, and the article list should be hidden
+7. **Navigate Back to Articles**: Tap on the "← Back to articles" button
+8. **Verify Return to List**: The article list should be visible again
+9. **Navigate Back to Feeds**: Tap on the "← Back to feeds" button
+10. **Verify Return to Sidebar**: The feeds sidebar should be visible again
 
-5. **Navigate back to the feed list**
-   - Click/tap the "← Back to feeds" button
-   - Expected: The view should return to the feed list in the sidebar
+### Test Case 2: Feed Selection Persistence
 
-## Test 2: Feed and Article Operations
+1. **Starting Point**: Open the application on a mobile device
+2. **Select a Feed**: Tap on a feed from the sidebar
+3. **Verify Articles List**: The article list should appear
+4. **Return to Feeds**: Tap on the "← Back to feeds" button
+5. **Select the Same Feed Again**: Tap on the same feed
+6. **Verify Articles List**: The article list should show the same articles as before
 
-### Steps:
+### Test Case 3: Article Selection Persistence
 
-1. **Select a feed and view an article as in Test 1**
+1. **Starting Point**: Open the application on a mobile device
+2. **Navigate to Articles**: Select a feed to view its articles
+3. **Select an Article**: Tap on an article to view its content
+4. **Return to Articles List**: Tap on the "← Back to articles" button
+5. **Select the Same Article Again**: Tap on the same article
+6. **Verify Article Content**: The article content should display correctly
 
-2. **Use article actions**
-   - Verify that the bookmark, share, and external link buttons work correctly
-   - Expected: Each button should perform its designated action
+## Automated Testing
 
-3. **Refresh feed content**
-   - From the article list view, use the refresh button
-   - Expected: The feed should refresh and show updated articles if available
+The application includes automated tests for the mobile navigation flow:
 
-## Test 3: Edge Cases
+1. **Unit Tests**: Located in `client/src/__tests__/MobileNavigation.test.tsx`
+   - Tests basic navigation between the three states
+   - Verifies content appears correctly in each state
 
-### Steps:
+2. **End-to-End Tests**: Optional test script in `scripts/test-mobile-navigation.js`
+   - Requires Puppeteer to be installed
+   - Simulates user interaction on mobile devices
 
-1. **Empty feed**
-   - Select a feed with no articles
-   - Expected: A "No articles found" message should be displayed
+## Running Automated Tests
 
-2. **Article with missing content**
-   - Select an article that might not have full content
-   - Expected: The application should handle it gracefully, possibly showing a "No content available" message
+To run the unit tests:
 
-3. **Rapid navigation**
-   - Quickly navigate back and forth between views
-   - Expected: The application should handle state transitions smoothly without errors
+```bash
+npx jest client/src/__tests__/MobileNavigation.test.tsx
+```
 
-## Results
+To run the E2E tests (if Puppeteer is installed):
 
-- [ ] Test 1 Passed
-- [ ] Test 2 Passed
-- [ ] Test 3 Passed
+```bash
+node scripts/test-mobile-navigation.js
+```
 
-### Notes
-*Add any observations or issues found during testing here:*
+## Common Issues
+
+- **Sidebar not hiding**: Check if the `sidebarOpen` state is properly toggled
+- **Back buttons not working**: Verify event handlers are correctly attached
+- **Article content not showing**: Ensure content is loaded and properly displayed in the ArticleView component
+
+## Performance Considerations
+
+- Article content is only fetched when viewing the article detail, not in the list view
+- This reduces initial load time and bandwidth usage
+- The application uses responsive design principles to adapt to different screen sizes

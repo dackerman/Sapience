@@ -6,6 +6,7 @@ import Home from '../pages/Home';
 import { useMobile } from '@/hooks/use-mobile';
 import * as reactQuery from '@tanstack/react-query';
 import { Router } from 'wouter';
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 
 // Mock the useMobile hook to simulate mobile view
 jest.mock('@/hooks/use-mobile', () => ({
@@ -13,17 +14,19 @@ jest.mock('@/hooks/use-mobile', () => ({
 }));
 
 // Mock our API responses
-jest.mock('@/lib/queryClient', () => ({
-  apiRequest: jest.fn(),
-  getQueryFn: jest.fn(),
-  queryClient: new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  }),
-}));
+jest.mock('@/lib/queryClient', () => {
+  return {
+    apiRequest: jest.fn(),
+    getQueryFn: jest.fn(),
+    queryClient: {
+      defaultOptions: {
+        queries: {
+          retry: false
+        }
+      }
+    }
+  };
+});
 
 // Sample data for our tests
 const mockCategories = [
@@ -86,7 +89,8 @@ describe('Mobile Navigation Flow', () => {
     
     // Mock useQuery responses
     jest.spyOn(reactQuery, 'useQuery')
-      .mockImplementation(({ queryKey }: { queryKey: string | string[] }) => {
+      .mockImplementation((options: any) => {
+        const queryKey = options.queryKey;
         if (queryKey[0] === '/api/categories') {
           return { data: mockCategories, isLoading: false } as any;
         }
