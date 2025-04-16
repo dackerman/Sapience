@@ -5,6 +5,7 @@ import axios from "axios";
 import Parser from "rss-parser";
 import { validateFeedUrlSchema, articleOperationSchema } from "@shared/schema";
 import { ZodError } from "zod";
+import { setupAuth } from "./auth";
 
 // Initialize RSS parser
 const parser = new Parser({
@@ -20,6 +21,9 @@ const parser = new Parser({
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
+
+  // Setup authentication
+  setupAuth(app);
 
   // API Routes
   // Categories

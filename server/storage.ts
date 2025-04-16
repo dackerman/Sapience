@@ -40,9 +40,9 @@ export interface IStorage {
   deleteArticlesByFeedId(feedId: number): Promise<boolean>;
   
   // User Profile methods
-  getUserProfile(): Promise<UserProfile | undefined>;
+  getUserProfile(userId: number): Promise<UserProfile | undefined>;
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
-  updateUserProfile(profile: Partial<UserProfile>): Promise<UserProfile | undefined>;
+  updateUserProfile(userId: number, profile: Partial<UserProfile>): Promise<UserProfile | undefined>;
   
   // Article Summary methods
   getArticleSummary(articleId: number): Promise<ArticleSummary | undefined>;
@@ -293,7 +293,7 @@ export class MemStorage implements IStorage {
   }
 
   // Stub implementations for "For You" feature - not used in MemStorage
-  async getUserProfile(): Promise<UserProfile | undefined> {
+  async getUserProfile(userId: number): Promise<UserProfile | undefined> {
     return undefined;
   }
   
@@ -301,7 +301,7 @@ export class MemStorage implements IStorage {
     throw new Error("Not implemented in MemStorage");
   }
   
-  async updateUserProfile(profile: Partial<UserProfile>): Promise<UserProfile | undefined> {
+  async updateUserProfile(userId: number, profile: Partial<UserProfile>): Promise<UserProfile | undefined> {
     return undefined;
   }
   

@@ -14,12 +14,26 @@ export async function processNewArticles() {
   console.log('Starting processing of new articles...');
   
   try {
-    // Step 1: Get user profile (or create a default one if it doesn't exist)
-    let userProfile = await storage.getUserProfile();
+    // Step 1: Check if we have any users in the system
+    // Create a default user if none exists
+    let defaultUser = await storage.getUserByUsername('defaultuser');
+    
+    if (!defaultUser) {
+      console.log('No default user found, creating one');
+      defaultUser = await storage.createUser({
+        username: 'defaultuser',
+        email: 'default@example.com',
+        password: 'defaultpassword123'  // In a real app, this would be properly hashed
+      });
+    }
+    
+    // Get user profile for the default user
+    let userProfile = await storage.getUserProfile(defaultUser.id);
     
     if (!userProfile) {
       console.log('No user profile found, creating default profile');
       userProfile = await storage.createUserProfile({
+        userId: defaultUser.id,
         interests: 'General technology news, programming, science, and current events.'
       });
     }
