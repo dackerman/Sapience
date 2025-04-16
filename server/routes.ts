@@ -24,6 +24,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Setup authentication
   setupAuth(app);
+  
+  // User profile routes
+  app.get("/api/profile", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    try {
+      const userProfile = await storage.getUserProfile(req.user.id);
+      if (userProfile) {
+        res.json(userProfile);
+      } else {
+        // If no profile exists yet, create a default one
+        const defaultProfile = await storage.createUserProfile({
+          userId: req.user.id,
+          interests: ""
+        });
+        res.json(defaultProfile);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+  
+  app.put("/api/profile", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    try {
+      const { interests } = req.body;
+      if (interests === undefined) {
+        return res.status(400).json({ message: "Interests are required" });
+      }
+      
+      // Check if profile exists
+      let userProfile = await storage.getUserProfile(req.user.id);
+      
+      if (userProfile) {
+        // Update existing profile
+        userProfile = await storage.updateUserProfile(req.user.id, { interests });
+      } else {
+        // Create new profile
+        userProfile = await storage.createUserProfile({
+          userId: req.user.id,
+          interests
+        });
+      }
+      
+      res.json(userProfile);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update user profile" });
+    }
+  });
 
   // API Routes
   // Categories

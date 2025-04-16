@@ -2,28 +2,31 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
+import MemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser, insertUserSchema } from "@shared/schema";
-import { ZodError } from "zod";
-import connectPg from "connect-pg-simple";
-import { pool } from "./db";
+import { User } from "@shared/schema";
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends User {}
   }
 }
 
+const SessionStore = MemoryStore(session);
+
+// Use promisify to get async versions of scrypt
 const scryptAsync = promisify(scrypt);
 
+// Hash password with salt
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
 
+// Compare supplied password with stored password
 async function comparePasswords(supplied: string, stored: string) {
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
@@ -32,45 +35,51 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Initialize PostgreSQL-based session store
-  const PostgresSessionStore = connectPg(session);
-  
+  // Session configuration
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "sapience-rss-reader-secret",
     resave: false,
     saveUninitialized: false,
-    store: new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
+    store: new SessionStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
     }),
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax"
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
     }
   };
 
-  app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Configure passport to use local strategy
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
-          return done(null, user);
+        if (!user) {
+          return done(null, false, { message: "Incorrect username or password" });
         }
+
+        const isValidPassword = await comparePasswords(password, user.password);
+        if (!isValidPassword) {
+          return done(null, false, { message: "Incorrect username or password" });
+        }
+
+        return done(null, user);
       } catch (error) {
         return done(error);
       }
-    }),
+    })
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  // Serialize user to session
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+
+  // Deserialize user from session
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -80,46 +89,33 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Authentication endpoints
+  // Register API routes for authentication
   app.post("/api/register", async (req, res, next) => {
     try {
-      // Validate request body
-      const userData = insertUserSchema.parse(req.body);
-      
       // Check if username already exists
-      const existingUser = await storage.getUserByUsername(userData.username);
+      const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // Hash password
-      const hashedPassword = await hashPassword(userData.password);
-      
-      // Create new user
+      // Hash the password
+      const hashedPassword = await hashPassword(req.body.password);
+
+      // Create the user
       const user = await storage.createUser({
-        ...userData,
-        password: hashedPassword
+        username: req.body.username,
+        email: req.body.email,
+        password: hashedPassword,
       });
 
-      // Create empty user profile
-      await storage.createUserProfile({
-        userId: user.id,
-        interests: "New user - no interests specified yet."
-      });
-
-      // Log the user in
+      // Auto-login the user after registration
       req.login(user, (err) => {
         if (err) return next(err);
         return res.status(201).json(user);
       });
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({ 
-          message: "Validation error", 
-          errors: error.errors 
-        });
-      }
-      next(error);
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Error creating user" });
     }
   });
 
@@ -127,7 +123,7 @@ export function setupAuth(app: Express) {
     passport.authenticate("local", (err, user, info) => {
       if (err) return next(err);
       if (!user) {
-        return res.status(401).json({ message: "Invalid username or password" });
+        return res.status(401).json({ message: info?.message || "Authentication failed" });
       }
       req.login(user, (err) => {
         if (err) return next(err);
@@ -136,70 +132,57 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  app.post("/api/logout", (req, res) => {
     req.logout((err) => {
-      if (err) return next(err);
+      if (err) {
+        return res.status(500).json({ message: "Error logging out" });
+      }
       res.status(200).json({ message: "Logged out successfully" });
     });
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
+    if (req.isAuthenticated()) {
+      return res.json(req.user);
+    } else {
       return res.status(401).json({ message: "Not authenticated" });
-    }
-    res.json(req.user);
-  });
-
-  // User profile endpoints
-  app.get("/api/user/profile", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-
-    try {
-      const userId = req.user!.id;
-      const profile = await storage.getUserProfile(userId);
-      
-      if (!profile) {
-        return res.status(404).json({ message: "Profile not found" });
-      }
-      
-      res.json(profile);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch user profile" });
     }
   });
 
-  app.put("/api/user/profile", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
+  // Create a default user if none exists (for development)
+  createDefaultUserIfNeeded();
+}
 
-    try {
-      const userId = req.user!.id;
-      const { interests } = req.body;
+// Helper to create a default user in development mode
+async function createDefaultUserIfNeeded() {
+  try {
+    const users = await storage.getUsers();
+    if (users.length === 0) {
+      console.log("No default user found, creating one");
       
-      if (!interests || typeof interests !== 'string' || interests.length < 10) {
-        return res.status(400).json({ 
-          message: "Please describe your interests in at least 10 characters" 
+      // Create a default user 
+      const user = await storage.createUser({
+        username: "demo",
+        email: "demo@example.com",
+        password: await hashPassword("password"),
+      });
+
+      // Create a default user profile
+      const userProfile = await storage.getUserProfile(user.id);
+      if (!userProfile) {
+        console.log("No user profile found, creating default profile");
+        await storage.createUserProfile({
+          userId: user.id,
+          interests: "technology, programming, web development, artificial intelligence, data science",
+          preferences: JSON.stringify({
+            theme: "light",
+            readingMode: "normal",
+            sendNotifications: false
+          })
         });
       }
-      
-      // Check if profile exists already
-      let profile = await storage.getUserProfile(userId);
-      
-      if (profile) {
-        profile = await storage.updateUserProfile(userId, { interests });
-      } else {
-        profile = await storage.createUserProfile({ 
-          userId,
-          interests
-        });
-      }
-      
-      res.json(profile);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update user profile" });
     }
-  });
+  } catch (error) {
+    console.error("Error creating default user:", error);
+  }
 }

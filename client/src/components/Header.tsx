@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { RssIcon, Menu, RefreshCw, Plus, Sparkles } from 'lucide-react';
+import { RssIcon, Menu, RefreshCw, Plus, Sparkles, LogOut, User } from 'lucide-react';
 import { useFeedActions } from '@/hooks/useFeedActions';
 import AddFeedModal from './AddFeedModal';
 import { Link, useLocation } from 'wouter';
+import { useAuth } from '@/hooks/use-auth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -13,9 +22,14 @@ export default function Header({ toggleSidebar }: HeaderProps) {
   const [showAddFeedModal, setShowAddFeedModal] = useState(false);
   const { refreshAllFeeds, isRefreshing } = useFeedActions();
   const [location] = useLocation();
+  const { user, logoutMutation } = useAuth();
 
   const handleRefreshFeeds = async () => {
     await refreshAllFeeds();
+  };
+  
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
   };
 
   return (
@@ -93,6 +107,32 @@ export default function Header({ toggleSidebar }: HeaderProps) {
             <Plus className="h-4 w-4 mr-1" />
             Add Feed
           </Button>
+          
+          {/* User dropdown menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <User className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                {user?.username}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <Link href="/profile">
+                <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+              </Link>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>{logoutMutation.isPending ? "Logging out..." : "Logout"}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

@@ -5,12 +5,18 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import ForYou from "@/pages/ForYou";
+import AuthPage from "@/pages/auth-page";
+import ProfilePage from "@/pages/profile-page";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/for-you" component={ForYou} />
+      <ProtectedRoute path="/" component={Home} />
+      <ProtectedRoute path="/for-you" component={ForYou} />
+      <ProtectedRoute path="/profile" component={ProfilePage} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -19,8 +25,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
