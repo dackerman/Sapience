@@ -389,7 +389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                 }
               } catch (contentError) {
-                console.error(`Error pre-fetching content during refresh: ${contentError instanceof Error ? contentError.message : String(contentError)}`);
+                // Some websites block automated content fetching, which is expected
+                console.log(`Note: Could not fetch full content for article ${newArticle.id} during refresh: ${contentError instanceof Error ? contentError.message : String(contentError)}`);
                 // Continue with next article - don't throw error
               }
             }
@@ -489,7 +490,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           console.log(`Stored full HTML content for article ${newArticle.id} in background`);
                         }
                       } catch (error) {
-                        console.error(`Error background fetching content: ${error instanceof Error ? error.message : String(error)}`);
+                        // Some websites block automated content fetching, which is expected
+                        // Log with lower severity since this is a common and non-critical issue
+                        console.log(`Note: Could not fetch full content for article ${newArticle.id}: ${error instanceof Error ? error.message : String(error)}`);
                       }
                     })();
                   }
@@ -714,7 +717,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   hasFullContent: true
                 });
               } catch (fetchError) {
-                console.error(`Error batch fetching content for article ${article.id}: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+                // Many websites block content scraping, so this is expected
+                console.log(`Note: Could not fetch full content for article ${article.id}: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
                 // Add original article without content
                 processedArticles.push({
                   ...article,
