@@ -53,7 +53,7 @@ jest.mock('../components/Header', () => {
 });
 
 // Sample recommendation data
-const mockRecommendations: ArticleWithSummary[] = [
+const mockRecommendationsData = [
   {
     id: 1,
     feedId: 1,
@@ -62,15 +62,17 @@ const mockRecommendations: ArticleWithSummary[] = [
     description: 'This is test article 1',
     content: '<p>Full content for article 1</p>',
     author: 'Author 1',
-    pubDate: new Date().toISOString(),
+    pubDate: new Date(),
     guid: 'guid1',
     read: false,
     favorite: false,
+    category: null,
+    imageUrl: null,
     summary: {
       id: 1,
       articleId: 1,
       summary: 'Summary of test article 1',
-      processedAt: new Date().toISOString(),
+      processedAt: new Date(),
       keywords: ['test', 'article']
     },
     recommendation: {
@@ -79,7 +81,7 @@ const mockRecommendations: ArticleWithSummary[] = [
       relevanceScore: 80,
       reasonForRecommendation: 'This matches your interests in testing',
       viewed: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date()
     }
   },
   {
@@ -90,15 +92,17 @@ const mockRecommendations: ArticleWithSummary[] = [
     description: 'This is test article 2',
     content: '<p>Full content for article 2</p>',
     author: 'Author 2',
-    pubDate: new Date().toISOString(),
+    pubDate: new Date(),
     guid: 'guid2',
     read: false,
     favorite: false,
+    category: null,
+    imageUrl: null,
     summary: {
       id: 2,
       articleId: 2,
       summary: 'Summary of test article 2',
-      processedAt: new Date().toISOString(),
+      processedAt: new Date(),
       keywords: ['test', 'article']
     },
     recommendation: {
@@ -107,10 +111,13 @@ const mockRecommendations: ArticleWithSummary[] = [
       relevanceScore: 75,
       reasonForRecommendation: 'This matches your interests in development',
       viewed: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date()
     }
   }
 ];
+
+// Cast mock data to ArticleWithSummary
+const mockRecommendations = mockRecommendationsData as any as ArticleWithSummary[];
 
 // Mock API responses
 jest.mock('@tanstack/react-query', () => {
@@ -121,15 +128,35 @@ jest.mock('@tanstack/react-query', () => {
       if (queryKey[0] === '/api/recommendations') {
         return {
           data: mockRecommendations,
-          isLoading: false
+          isLoading: false,
+          refetch: jest.fn()
         };
       }
       
       return {
         data: null,
-        isLoading: false
+        isLoading: false,
+        refetch: jest.fn()
+      };
+    }),
+    useMutation: jest.fn().mockImplementation(() => {
+      return {
+        mutate: jest.fn(),
+        isPending: false,
+        isError: false,
+        isSuccess: true
       };
     })
+  };
+});
+
+// Mock the queryClient
+jest.mock('@/lib/queryClient', () => {
+  return {
+    queryClient: {
+      invalidateQueries: jest.fn()
+    },
+    apiRequest: jest.fn().mockImplementation(() => Promise.resolve({}))
   };
 });
 

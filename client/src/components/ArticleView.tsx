@@ -111,7 +111,7 @@ export default function ArticleView({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden" data-testid="article-view">
       <div className="border-b border-gray-200 py-3 px-4 md:px-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div className="flex-1 min-w-0">
           {isLoading ? (
