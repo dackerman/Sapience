@@ -9,33 +9,60 @@ const MIN_RELEVANCE_SCORE = 50; // Minimum relevance score (out of 100) to recom
 /**
  * Background job to process new articles, generate summaries and recommendations
  * This runs on a periodic basis to process articles that haven't been summarized yet
+ * 
+ * @param specificUserId Optional: If provided, regenerates recommendations only for this user
  */
-export async function processNewArticles() {
+export async function processNewArticles(specificUserId?: number) {
   console.log('Starting processing of new articles...');
   
   try {
-    // Step 1: Check if we have any users in the system
-    // Create a default user if none exists
-    let defaultUser = await storage.getUserByUsername('defaultuser');
+    // Step 1: Determine which user(s) to process
+    // If a specific user ID is provided, use that user
+    // Otherwise fall back to the default user for general processing
     
-    if (!defaultUser) {
-      console.log('No default user found, creating one');
-      defaultUser = await storage.createUser({
-        username: 'defaultuser',
-        email: 'default@example.com',
-        password: 'defaultpassword123'  // In a real app, this would be properly hashed
-      });
+    let targetUsers = [];
+    
+    if (specificUserId) {
+      const specificUser = await storage.getUser(specificUserId);
+      if (specificUser) {
+        const userProfile = await storage.getUserProfile(specificUserId);
+        if (userProfile) {
+          console.log(`Using specific user ${specificUserId} for recommendation processing`);
+          targetUsers.push({ user: specificUser, profile: userProfile });
+        } else {
+          console.log(`No profile found for specific user ${specificUserId}, skipping`);
+        }
+      } else {
+        console.log(`Specific user ${specificUserId} not found, falling back to default user`);
+      }
     }
     
-    // Get user profile for the default user
-    let userProfile = await storage.getUserProfile(defaultUser.id);
-    
-    if (!userProfile) {
-      console.log('No user profile found, creating default profile');
-      userProfile = await storage.createUserProfile({
-        userId: defaultUser.id,
-        interests: 'General technology news, programming, science, and current events.'
-      });
+    // Always include default user if no specific user is given or if we couldn't find the specific user
+    if (targetUsers.length === 0) {
+      // Create a default user if none exists
+      let defaultUser = await storage.getUserByUsername('defaultuser');
+      
+      if (!defaultUser) {
+        console.log('No default user found, creating one');
+        defaultUser = await storage.createUser({
+          username: 'defaultuser',
+          email: 'default@example.com',
+          password: 'defaultpassword123'  // In a real app, this would be properly hashed
+        });
+      }
+      
+      // Get user profile for the default user
+      let userProfile = await storage.getUserProfile(defaultUser.id);
+      
+      if (!userProfile) {
+        console.log('No user profile found, creating default profile');
+        userProfile = await storage.createUserProfile({
+          userId: defaultUser.id,
+          interests: 'General technology news, programming, science, and current events.'
+        });
+      }
+      
+      targetUsers.push({ user: defaultUser, profile: userProfile });
     }
     
     // Step 2: Get unprocessed articles (articles without summaries)
@@ -45,28 +72,51 @@ export async function processNewArticles() {
     if (unprocessedArticles.length === 0) {
       console.log('No new articles to process, checking for existing article summaries to generate recommendations');
       
-      // For our test - even if there are no new articles, we should regenerate recommendations
-      // based on existing article summaries if there are no recommendations
-      const articleSummaries = await storage.getArticleSummaries();
-      const recommendations = await storage.getRecommendations(defaultUser.id);
-      
-      if (articleSummaries.length > 0 && recommendations.length === 0) {
-        console.log(`Found ${articleSummaries.length} existing article summaries with no recommendations`);
+      // For each target user, check if we need to generate recommendations
+      for (const { user, profile } of targetUsers) {
+        // Get article summaries and check if this user has recommendations
+        const articleSummaries = await storage.getArticleSummaries();
+        const recommendations = await storage.getRecommendations(user.id);
         
-        // Generate recommendations for existing summaries
-        for (const summary of articleSummaries) {
-          try {
-            await generateRecommendationForSummary(summary, defaultUser.id, userProfile.interests);
-          } catch (error) {
-            console.error(`Error generating recommendation for summary ${summary.id}:`, error);
+        if (articleSummaries.length > 0) {
+          if (specificUserId) {
+            // If processing a specific user, always regenerate their recommendations
+            console.log(`Regenerating recommendations for user ${user.id} - profile update triggered`);
+            
+            // Generate recommendations for all summaries for this specific user
+            for (const summary of articleSummaries) {
+              try {
+                await generateRecommendationForSummary(summary, user.id, profile.interests);
+              } catch (error) {
+                console.error(`Error generating recommendation for summary ${summary.id}:`, error);
+              }
+            }
+            
+            console.log(`Finished regenerating recommendations for user ${user.id}`);
+          } 
+          else if (recommendations.length === 0) {
+            // For regular scheduled jobs, only generate if no recommendations exist
+            console.log(`Found ${articleSummaries.length} existing article summaries with no recommendations for user ${user.id}`);
+            
+            // Generate recommendations for existing summaries
+            for (const summary of articleSummaries) {
+              try {
+                await generateRecommendationForSummary(summary, user.id, profile.interests);
+              } catch (error) {
+                console.error(`Error generating recommendation for summary ${summary.id}:`, error);
+              }
+            }
+            
+            console.log(`Finished generating recommendations for user ${user.id}`);
           }
+          else {
+            console.log(`User ${user.id} already has recommendations, skipping generation`);
+          }
+        } else {
+          console.log("No article summaries found to generate recommendations from");
         }
-        
-        console.log("Finished regenerating recommendations for existing summaries");
-        return;
       }
       
-      console.log("No action needed - either no summaries or recommendations already exist");
       return;
     }
     
