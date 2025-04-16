@@ -126,6 +126,7 @@ export type ArticleSummary = typeof articleSummaries.$inferSelect;
 // Recommendations schema
 export const recommendations = pgTable("recommendations", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
   articleId: integer("article_id").notNull().references(() => articles.id),
   relevanceScore: integer("relevance_score").notNull(),  // 1-100 score
   reasonForRecommendation: text("reason").notNull(),
@@ -134,6 +135,7 @@ export const recommendations = pgTable("recommendations", {
 });
 
 export const insertRecommendationSchema = createInsertSchema(recommendations).pick({
+  userId: true,
   articleId: true,
   relevanceScore: true,
   reasonForRecommendation: true,

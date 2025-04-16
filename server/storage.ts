@@ -51,11 +51,12 @@ export interface IStorage {
   createArticleSummary(summary: InsertArticleSummary): Promise<ArticleSummary>;
   
   // Recommendation methods
-  getRecommendations(viewed?: boolean): Promise<Recommendation[]>;
-  getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined>;
+  getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]>;
+  getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined>;
   createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation>;
   markRecommendationAsViewed(id: number): Promise<Recommendation | undefined>;
   deleteAllRecommendations(): Promise<boolean>;
+  deleteUserRecommendations(userId: number): Promise<boolean>;
   
   // Combined query for "For You" page
   getRecommendedArticles(): Promise<ArticleWithSummary[]>;
@@ -788,35 +789,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Recommendation methods
-  async getRecommendations(viewed?: boolean): Promise<Recommendation[]> {
+  async getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]> {
     if (viewed !== undefined) {
       const results = await db
         .select()
         .from(recommendations)
-        .where(eq(recommendations.viewed, viewed));
+        .where(
+          and(
+            eq(recommendations.userId, userId),
+            eq(recommendations.viewed, viewed)
+          )
+        );
       
       return results;
     }
     
     const results = await db
       .select()
-      .from(recommendations);
+      .from(recommendations)
+      .where(eq(recommendations.userId, userId));
     
     return results;
   }
 
-  async getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined> {
+  async getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined> {
     const [recommendation] = await db
       .select()
       .from(recommendations)
-      .where(eq(recommendations.articleId, articleId));
+      .where(
+        and(
+          eq(recommendations.userId, userId),
+          eq(recommendations.articleId, articleId)
+        )
+      );
     
     return recommendation;
   }
 
   async createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation> {
-    // Check if a recommendation already exists for this article
-    const existingRecommendation = await this.getRecommendationForArticle(recommendation.articleId);
+    // Check if a recommendation already exists for this article for this user
+    const existingRecommendation = await this.getRecommendationForArticle(
+      recommendation.userId, 
+      recommendation.articleId
+    );
     
     if (existingRecommendation) {
       // If a recommendation already exists, update it
@@ -860,6 +875,15 @@ export class DatabaseStorage implements IStorage {
       .where(sql`1=1`); // This deletes all records
     
     console.log('All recommendations deleted');
+    return true;
+  }
+  
+  async deleteUserRecommendations(userId: number): Promise<boolean> {
+    await db
+      .delete(recommendations)
+      .where(eq(recommendations.userId, userId));
+    
+    console.log(`Recommendations deleted for user ${userId}`);
     return true;
   }
 
