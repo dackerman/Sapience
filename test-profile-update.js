@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { HttpCookieAgent } from 'http-cookie-agent/http';
+import fs from 'fs';
 
 /**
  * This test verifies the user-specific recommendation regeneration flow:
@@ -88,23 +89,31 @@ async function testProfileUpdates() {
     
     // Step 5: Wait for new recommendations to be generated
     console.log('\nStep 5: Waiting for new recommendations to be generated...');
-    console.log('  This may take up to 30 seconds as background processing occurs...');
+    console.log('  This may take some time as the system processes articles through OpenAI...');
     
     // Wait for recommendations to be regenerated
     let newRecommendations = [];
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20; // Increased to 20 attempts
+    const waitTime = 5000; // Increased to 5 seconds between attempts
+    
+    console.log(`  Waiting up to ${maxAttempts * waitTime / 1000} seconds for recommendations to regenerate...`);
     
     while (newRecommendations.length === 0 && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+      await new Promise(resolve => setTimeout(resolve, waitTime));
       attempts++;
       
       try {
         const response = await api.get('/api/recommendations');
         newRecommendations = response.data;
         console.log(`  Attempt ${attempts}: Found ${newRecommendations.length} recommendations`);
+        
+        if (newRecommendations.length > 0) {
+          console.log('  ✓ New recommendations found!');
+          break;
+        }
       } catch (error) {
-        console.log(`  Attempt ${attempts}: Error fetching recommendations`);
+        console.log(`  Attempt ${attempts}: Error fetching recommendations - ${error.message}`);
       }
     }
     
@@ -153,9 +162,38 @@ async function testProfileUpdates() {
     }
     
     console.log('\nTest completed!');
+
+    // Save all the test results to a file so we can see them even if the test times out
+    const testResults = {
+      initialRecommendationsCount: initialRecommendations.length,
+      initialRecommendationsSample: initialRecommendations.slice(0, 2),
+      newInterests,
+      newRecommendationsCount: newRecommendations.length,
+      newRecommendationsSample: newRecommendations.slice(0, 3),
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      fs.writeFileSync('profile-update-test-results.json', JSON.stringify(testResults, null, 2));
+      console.log('Test results saved to profile-update-test-results.json');
+    } catch (fileError) {
+      console.error('Error saving test results:', fileError);
+    }
     
   } catch (error) {
     console.error('Test error:', error.response ? error.response.data : error.message);
+    
+    // Save error to file
+    try {
+      fs.writeFileSync('profile-update-test-error.json', JSON.stringify({
+        error: error.message,
+        response: error.response?.data,
+        timestamp: new Date().toISOString()
+      }, null, 2));
+      console.log('Test error saved to profile-update-test-error.json');
+    } catch (fileError) {
+      console.error('Error saving test error:', fileError);
+    }
   }
 }
 
