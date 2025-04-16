@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RssIcon, Menu, RefreshCw, Plus, Sparkles } from 'lucide-react';
 import { useFeedActions } from '@/hooks/useFeedActions';

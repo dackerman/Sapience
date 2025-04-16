@@ -27,6 +27,9 @@ jest.mock('@/hooks/useFeedActions', () => ({
   useFeedActions: () => ({
     createFeed: jest.fn(),
     deleteFeed: jest.fn(),
+    refreshFeed: jest.fn(),
+    refreshAllFeeds: jest.fn(),
+    isRefreshing: false
   }),
 }));
 
@@ -73,6 +76,49 @@ const mockArticles = [
     favorite: false
   }
 ];
+
+// Mock components used by Home
+jest.mock('@/components/Header', () => {
+  return {
+    __esModule: true,
+    default: () => <div data-testid="header">Header</div>
+  };
+});
+
+jest.mock('@/components/Sidebar', () => {
+  return {
+    __esModule: true,
+    default: ({ onSelectFeed }) => (
+      <div data-testid="sidebar">
+        <div onClick={() => onSelectFeed(1)}>Hacker News</div>
+        <div onClick={() => onSelectFeed(2)}>Tech Blog</div>
+      </div>
+    )
+  };
+});
+
+jest.mock('@/components/ArticleList', () => {
+  return {
+    __esModule: true,
+    default: ({ onSelectArticle }) => (
+      <div data-testid="article-list">
+        <div onClick={() => onSelectArticle(mockArticles[0])}>Test Article 1</div>
+        <div onClick={() => onSelectArticle(mockArticles[1])}>Test Article 2</div>
+      </div>
+    )
+  };
+});
+
+jest.mock('@/components/ArticleView', () => {
+  return {
+    __esModule: true,
+    default: ({ article }) => (
+      article && <div data-testid="article-view">
+        <p>{article.content.replace(/<\/?p>/g, '')}</p>
+      </div>
+    )
+  };
+});
 
 // Mock modules
 jest.mock('wouter', () => ({
