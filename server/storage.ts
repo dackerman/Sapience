@@ -55,6 +55,7 @@ export interface IStorage {
   getRecommendationForArticle(articleId: number): Promise<Recommendation | undefined>;
   createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation>;
   markRecommendationAsViewed(id: number): Promise<Recommendation | undefined>;
+  deleteAllRecommendations(): Promise<boolean>;
   
   // Combined query for "For You" page
   getRecommendedArticles(): Promise<ArticleWithSummary[]>;
