@@ -30,6 +30,14 @@ Sapience is a modern, intelligent RSS reader application that enhances your cont
 - **Article Isolation**: Uses iframes to prevent external CSS from affecting your reading
 - **Mark as Read/Favorite**: Track your reading progress and save favorites
 
+## Screenshots
+
+### Desktop View
+The Sapience interface provides a clean, distraction-free reading experience with a three-panel layout:
+
+![Sapience Desktop Screenshot](assets/sapience-screenshot.png)
+*Left: Feed list with categories | Center: Article list | Right: Article content view with reading tools*
+
 ## Technical Architecture
 
 Sapience is built using modern web technologies:
