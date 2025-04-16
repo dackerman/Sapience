@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Article, Feed } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useFeedActions } from '@/hooks/useFeedActions';
+import { useMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import IframeArticle from './IframeArticle';
 
@@ -24,6 +25,8 @@ interface ArticleListProps {
 export default function ArticleList({ feedId, onSelectArticle, selectedArticle }: ArticleListProps) {
   const [sortBy, setSortBy] = useState('newest');
   const { refreshFeed, isRefreshing } = useFeedActions();
+  // Get mobile status from custom hook
+  const isMobile = useMobile();
 
   // Fetch feed details
   const { 
@@ -43,12 +46,11 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     queryKey: feedId ? [`/api/articles?feedId=${feedId}&sortBy=${sortBy}`] : ['empty-articles'],
     enabled: !!feedId
   });
-
-  // Auto-select the first article when feed changes or articles load (desktop only)
-  const isMobile = window.innerWidth < 768; // Simple mobile detection
   
+  // Auto-select the first article when feed changes or articles load (desktop only)
   useEffect(() => {
-    // Only auto-select on desktop view (selectedArticle will be null on mobile)
+    // Only auto-select on desktop view
+    // On mobile view, we want to show the article list without auto-selecting
     if (!isMobile && articles.length > 0 && !selectedArticle) {
       onSelectArticle(articles[0]);
     }
