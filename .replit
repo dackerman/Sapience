@@ -37,6 +37,15 @@ task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Run tests"
+mode = "sequential"
+author = 1374898
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm test"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
