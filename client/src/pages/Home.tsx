@@ -18,7 +18,7 @@ export default function Home() {
     data: feed,
     isLoading: feedLoading
   } = useQuery<Feed>({
-    queryKey: selectedFeed ? [`/api/feeds/${selectedFeed}`] : null,
+    queryKey: selectedFeed ? [`/api/feeds/${selectedFeed}`] : ['empty-feed'],
     enabled: !!selectedFeed
   });
 
@@ -42,6 +42,8 @@ export default function Home() {
 
   // Handle article selection
   const handleSelectArticle = (article: Article) => {
+    // On mobile, set selected article which changes the view
+    // On desktop, just update the selected article state
     setSelectedArticle(article);
   };
 
@@ -75,7 +77,7 @@ export default function Home() {
             <ArticleList 
               feedId={selectedFeed} 
               onSelectArticle={handleSelectArticle} 
-              selectedArticle={null} 
+              selectedArticle={null} /* Mobile view always passes null to prevent highlighting */ 
             />
           </div>
         )}

@@ -172,15 +172,7 @@ export default function Sidebar({ sidebarOpen, selectedFeed, onSelectFeed }: Sid
                               <File className={`h-4 w-4 mr-2 ${selectedFeed === feed.id ? 'text-primary' : 'text-gray-500'}`} />
                               {feed.title}
                             </div>
-                            {feed.unreadCount > 0 && (
-                              <span className={`${
-                                selectedFeed === feed.id 
-                                  ? 'bg-primary text-white' 
-                                  : 'bg-gray-200 text-gray-700'
-                              } px-1.5 py-0.5 rounded-full text-xs`}>
-                                {feed.unreadCount}
-                              </span>
-                            )}
+                            {/* Unread count would go here when implemented */}
                           </div>
                         ))}
                     </div>
