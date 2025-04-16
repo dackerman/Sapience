@@ -52,6 +52,7 @@ export interface IStorage {
   
   // Recommendation methods
   getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]>;
+  getRecommendationById(id: number): Promise<Recommendation | undefined>;
   getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined>;
   createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation>;
   markRecommendationAsViewed(id: number): Promise<Recommendation | undefined>;
@@ -332,6 +333,10 @@ export class MemStorage implements IStorage {
   
   async getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]> {
     return [];
+  }
+  
+  async getRecommendationById(id: number): Promise<Recommendation | undefined> {
+    return undefined;
   }
   
   async getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined> {
@@ -814,6 +819,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(recommendations.userId, userId));
     
     return results;
+  }
+
+  async getRecommendationById(id: number): Promise<Recommendation | undefined> {
+    const [recommendation] = await db
+      .select()
+      .from(recommendations)
+      .where(eq(recommendations.id, id));
+    
+    return recommendation;
   }
 
   async getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined> {

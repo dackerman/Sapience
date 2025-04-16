@@ -615,7 +615,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint for AI-powered "For You" page recommendations
   app.get("/api/recommendations", async (req, res) => {
     try {
-      const recommendedArticles = await storage.getRecommendedArticles();
+      // Require authentication for recommendations
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      // Get recommendations specific to the authenticated user
+      const recommendedArticles = await storage.getRecommendedArticles(req.user.id);
       res.json(recommendedArticles);
     } catch (error) {
       console.error("Error fetching recommendations:", error);
@@ -629,9 +635,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint to mark recommendation as viewed
   app.post("/api/recommendations/:id/viewed", async (req, res) => {
     try {
+      // Require authentication for marking recommendations as viewed
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid recommendation ID" });
+      }
+      
+      // Verify the recommendation belongs to the current user
+      const recommendation = await storage.getRecommendationById(id);
+      if (!recommendation) {
+        return res.status(404).json({ message: "Recommendation not found" });
+      }
+      
+      // Make sure the recommendation belongs to the current user
+      if (recommendation.userId !== req.user.id) {
+        return res.status(403).json({ message: "You don't have permission to mark this recommendation as viewed" });
       }
       
       const updated = await storage.markRecommendationAsViewed(id);
