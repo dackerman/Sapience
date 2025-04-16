@@ -6,6 +6,7 @@ import Parser from "rss-parser";
 import { validateFeedUrlSchema, articleOperationSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { setupAuth } from "./auth";
+import { processNewArticles } from "./services/backgroundJobs";
 
 // Initialize RSS parser
 const parser = new Parser({
@@ -79,8 +80,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteAllRecommendations();
       console.log("Deleted all recommendations after profile update");
       
-      // Trigger the background job to regenerate recommendations
-      // This will happen on the next background job cycle
+      // Trigger the background job to regenerate recommendations immediately
+      console.log("Triggering immediate article processing after profile update");
+      processNewArticles().catch(error => {
+        console.error("Error processing articles after profile update:", error);
+        // Don't fail the request if processing fails
+      });
       
       res.json(userProfile);
     } catch (error) {
