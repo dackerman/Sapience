@@ -778,6 +778,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error", error: String(error) });
     }
   });
+  
+  // Test endpoint to manually trigger article processing
+  // Only for testing - should be removed in production
+  app.post("/api/test/process-articles", async (req, res) => {
+    try {
+      console.log('Manually triggering article processing...');
+      await processNewArticles();
+      res.json({ message: 'Article processing completed successfully' });
+    } catch (error) {
+      console.error('Error processing articles:', error);
+      res.status(500).json({ message: 'Failed to process articles' });
+    }
+  });
 
   return httpServer;
 }

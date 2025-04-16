@@ -43,7 +43,30 @@ export async function processNewArticles() {
     console.log(`Found ${unprocessedArticles.length} unprocessed articles`);
     
     if (unprocessedArticles.length === 0) {
-      console.log('No new articles to process');
+      console.log('No new articles to process, checking for existing article summaries to generate recommendations');
+      
+      // For our test - even if there are no new articles, we should regenerate recommendations
+      // based on existing article summaries if there are no recommendations
+      const articleSummaries = await storage.getArticleSummaries();
+      const recommendations = await storage.getRecommendations();
+      
+      if (articleSummaries.length > 0 && recommendations.length === 0) {
+        console.log(`Found ${articleSummaries.length} existing article summaries with no recommendations`);
+        
+        // Generate recommendations for existing summaries
+        for (const summary of articleSummaries) {
+          try {
+            await generateRecommendationForSummary(summary, userProfile.interests);
+          } catch (error) {
+            console.error(`Error generating recommendation for summary ${summary.id}:`, error);
+          }
+        }
+        
+        console.log("Finished regenerating recommendations for existing summaries");
+        return;
+      }
+      
+      console.log("No action needed - either no summaries or recommendations already exist");
       return;
     }
     
