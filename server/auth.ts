@@ -156,8 +156,9 @@ export function setupAuth(app: Express) {
 // Helper to create a default user in development mode
 async function createDefaultUserIfNeeded() {
   try {
-    const users = await storage.getUsers();
-    if (users.length === 0) {
+    // Check if a demo user exists
+    const demoUser = await storage.getUserByUsername("demo");
+    if (!demoUser) {
       console.log("No default user found, creating one");
       
       // Create a default user 
@@ -173,12 +174,7 @@ async function createDefaultUserIfNeeded() {
         console.log("No user profile found, creating default profile");
         await storage.createUserProfile({
           userId: user.id,
-          interests: "technology, programming, web development, artificial intelligence, data science",
-          preferences: JSON.stringify({
-            theme: "light",
-            readingMode: "normal",
-            sendNotifications: false
-          })
+          interests: "technology, programming, web development, artificial intelligence, data science"
         });
       }
     }
