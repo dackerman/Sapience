@@ -4,13 +4,13 @@
  * @jest-environment jsdom
  */
 
+import React from 'react';
 import '@testing-library/jest-dom'; // Import the jest-dom matchers
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Router } from 'wouter';
 import Home from '../pages/Home';
 import { useMobile } from '@/hooks/use-mobile';
-import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 
 // Create mock implementations
 jest.mock('@/hooks/use-mobile', () => ({
@@ -74,52 +74,58 @@ const mockArticles = [
   }
 ];
 
+// Mock modules
+jest.mock('wouter', () => ({
+  Router: ({ children }: { children: React.ReactNode }) => children,
+  useLocation: jest.fn(() => ['/']),
+  useRoute: jest.fn(() => [false, {}]),
+}));
+
 // Mock tanstack query hooks
-jest.mock('@tanstack/react-query', () => {
-  const actual = jest.requireActual('@tanstack/react-query');
-  
-  return {
-    ...actual,
-    useQuery: jest.fn().mockImplementation((options) => {
-      const queryKey = options.queryKey;
-      
-      if (queryKey && queryKey[0] === '/api/categories') {
-        return { data: mockCategories, isLoading: false };
-      }
-      
-      if (queryKey && queryKey[0] === '/api/feeds') {
-        return { data: mockFeeds, isLoading: false };
-      }
-      
-      if (queryKey && queryKey[0] === '/api/articles') {
-        return { data: mockArticles, isLoading: false, refetch: jest.fn() };
-      }
-      
-      if (queryKey && typeof queryKey[0] === 'string' && queryKey[0].includes('/api/feeds/')) {
-        return { 
-          data: { 
-            id: 1, 
-            title: 'Hacker News', 
-            url: 'https://news.ycombinator.com', 
-            categoryId: 1, 
-            favicon: null, 
-            description: null 
-          }, 
-          isLoading: false 
-        };
-      }
-      
-      return { data: undefined, isLoading: false };
-    }),
-    useMutation: jest.fn().mockImplementation(() => ({
-      mutate: jest.fn(),
-      isPending: false
-    }))
-  };
-});
+jest.mock('@tanstack/react-query', () => ({
+  QueryClient: jest.fn(() => ({
+    defaultOptions: {},
+    invalidateQueries: jest.fn(),
+  })),
+  QueryClientProvider: ({ children }: { children: React.ReactNode }) => children,
+  useQuery: jest.fn().mockImplementation(({ queryKey }) => {
+    if (queryKey && queryKey[0] === '/api/categories') {
+      return { data: mockCategories, isLoading: false };
+    }
+    
+    if (queryKey && queryKey[0] === '/api/feeds') {
+      return { data: mockFeeds, isLoading: false };
+    }
+    
+    if (queryKey && queryKey[0] === '/api/articles') {
+      return { data: mockArticles, isLoading: false, refetch: jest.fn() };
+    }
+    
+    if (queryKey && typeof queryKey[0] === 'string' && queryKey[0].includes('/api/feeds/')) {
+      return { 
+        data: { 
+          id: 1, 
+          title: 'Hacker News', 
+          url: 'https://news.ycombinator.com', 
+          categoryId: 1, 
+          favicon: null, 
+          description: null 
+        }, 
+        isLoading: false 
+      };
+    }
+    
+    return { data: undefined, isLoading: false };
+  }),
+  useMutation: jest.fn(() => ({
+    mutate: jest.fn(),
+    isPending: false
+  }))
+}));
 
 describe('Mobile Navigation Flow', () => {
-  let queryClient;
+  // Using any here because we've mocked QueryClient
+  let queryClient: any;
   
   beforeEach(() => {
     // Create a new QueryClient for each test
