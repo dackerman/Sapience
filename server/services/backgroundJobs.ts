@@ -154,7 +154,7 @@ async function generateRecommendationForSummary(summary: ArticleSummary, userInt
     userInterests,
     article.title,
     summary.summary,
-    summary.keywords || []
+    Array.isArray(summary.keywords) ? summary.keywords : []
   );
   
   // If it's relevant, save as a recommendation
