@@ -68,6 +68,16 @@ export default function Header({ toggleSidebar }: HeaderProps) {
             >
               <Plus className="h-4 w-4" />
             </Button>
+            <Link href="/profile">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8"
+                title="Profile"
+              >
+                <User className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
         
