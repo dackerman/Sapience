@@ -612,6 +612,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // Endpoint to mark recommendation as viewed
+  app.post("/api/recommendations/:id/viewed", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid recommendation ID" });
+      }
+      
+      const updated = await storage.markRecommendationAsViewed(id);
+      if (!updated) {
+        return res.status(404).json({ message: "Recommendation not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking recommendation as viewed:", error);
+      res.status(500).json({ 
+        message: "Failed to mark recommendation as viewed", 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   // Endpoint to fetch external article content for a single article
   app.get("/api/articles/:id/content", async (req, res) => {

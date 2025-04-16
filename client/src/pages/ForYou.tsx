@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ArticleWithSummary } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,16 +9,31 @@ import { CalendarIcon, BookOpenIcon, StarIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Header from "@/components/Header";
 import ArticleView from "@/components/ArticleView";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ForYou() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedArticle, setSelectedArticle] =
-    useState<ArticleWithSummary | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<ArticleWithSummary | null>(null);
+  const { toast } = useToast();
 
   // Fetch recommended articles
-  const { data: recommendedArticles, isLoading } = useQuery({
+  const { data: recommendedArticles, isLoading, refetch: refetchRecommendations } = useQuery({
     queryKey: ["/api/recommendations"],
     select: (data) => data as ArticleWithSummary[],
+  });
+
+  // Mark recommendation as viewed mutation
+  const markAsViewedMutation = useMutation({
+    mutationFn: async (recommendationId: number) => {
+      return apiRequest("POST", `/api/recommendations/${recommendationId}/viewed`, {});
+    },
+    onSuccess: () => {
+      // No need to invalidate cache here as we handle the UI state directly
+    },
+    onError: () => {
+      console.error("Failed to mark recommendation as viewed");
+    }
   });
 
   // Automatically select the first article when data loads
@@ -32,13 +47,28 @@ export default function ForYou() {
     }
   }, [recommendedArticles, selectedArticle]);
 
-  const handleArticleSelect = (article: ArticleWithSummary) => {
+  // Handle article selection with proper state management
+  const handleArticleSelect = useCallback((article: ArticleWithSummary) => {
     setSelectedArticle(article);
-  };
+    
+    // Mark the recommendation as viewed if it exists
+    if (article.recommendation?.id) {
+      markAsViewedMutation.mutate(article.recommendation.id);
+    }
+  }, [markAsViewedMutation]);
 
-  const toggleSidebar = () => {
+  // Safe way to clear selected article
+  const clearSelectedArticle = useCallback(() => {
+    // Delay the state update slightly to avoid UI flickering
+    // This allows time for CSS transitions to complete
+    setTimeout(() => {
+      setSelectedArticle(null);
+    }, 10);
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
     setSidebarOpen(!sidebarOpen);
-  };
+  }, [sidebarOpen]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -147,7 +177,7 @@ export default function ForYou() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setSelectedArticle(null)}
+              onClick={clearSelectedArticle}
               className="mb-1"
             >
               ← Back to recommendations
