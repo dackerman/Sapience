@@ -138,7 +138,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               imageUrl = item.media.$.url;
             }
 
-            await storage.createArticle({
+            // Create the article in storage
+            const newArticle = await storage.createArticle({
               feedId: newFeed.id,
               title: item.title,
               link: item.link,
@@ -150,6 +151,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               guid: item.guid || item.id || item.link,
               imageUrl
             });
+            
+            // For important articles, fetch the full HTML content immediately
+            // This helps avoid needing to fetch content on first view
+            try {
+              if (newArticle && (!newArticle.content || newArticle.content.length < 500)) {
+                console.log(`Pre-fetching full content for new article ${newArticle.id}`);
+                const contentResponse = await axios.get(item.link, {
+                  timeout: 5000,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                  },
+                  responseType: 'text'
+                });
+                
+                // Store the full HTML content
+                if (contentResponse.data) {
+                  await storage.updateArticle(newArticle.id, { content: contentResponse.data });
+                  console.log(`Stored full HTML content for article ${newArticle.id}`);
+                }
+              }
+            } catch (contentError) {
+              console.error(`Error pre-fetching content for new article: ${contentError instanceof Error ? contentError.message : String(contentError)}`);
+              // Don't throw error - just continue with partial content
+            }
           }
         }
 
@@ -283,6 +308,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               
               newArticles.push(newArticle);
+              
+              // For recently added articles, pre-fetch the full HTML content
+              // to avoid having to fetch it when the user first views the article
+              try {
+                if (newArticle && (!newArticle.content || newArticle.content.length < 500)) {
+                  console.log(`Pre-fetching full content for new article ${newArticle.id} during refresh`);
+                  const contentResponse = await axios.get(item.link, {
+                    timeout: 5000, 
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    },
+                    responseType: 'text'
+                  });
+                  
+                  // Store the full HTML content
+                  if (contentResponse.data) {
+                    await storage.updateArticle(newArticle.id, { content: contentResponse.data });
+                    console.log(`Stored full HTML content for article ${newArticle.id} during refresh`);
+                  }
+                }
+              } catch (contentError) {
+                console.error(`Error pre-fetching content during refresh: ${contentError instanceof Error ? contentError.message : String(contentError)}`);
+                // Continue with next article - don't throw error
+              }
             }
           }
         }
@@ -344,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   imageUrl = item.media.$.url;
                 }
                 
-                await storage.createArticle({
+                const newArticle = await storage.createArticle({
                   feedId: feed.id,
                   title: item.title,
                   link: item.link,
@@ -358,6 +407,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 });
                 
                 results.newArticles++;
+                
+                // Try to fetch full HTML content for new articles in the background
+                // We don't want to slow down the refresh all operation, so we don't await this
+                // and we catch any errors silently
+                try {
+                  if (newArticle && (!newArticle.content || newArticle.content.length < 500)) {
+                    (async () => {
+                      try {
+                        console.log(`Background pre-fetching content for article ${newArticle.id}`);
+                        const contentResponse = await axios.get(item.link, {
+                          timeout: 5000,
+                          headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                          },
+                          responseType: 'text'
+                        });
+                        
+                        if (contentResponse.data) {
+                          await storage.updateArticle(newArticle.id, { content: contentResponse.data });
+                          console.log(`Stored full HTML content for article ${newArticle.id} in background`);
+                        }
+                      } catch (error) {
+                        console.error(`Error background fetching content: ${error instanceof Error ? error.message : String(error)}`);
+                      }
+                    })();
+                  }
+                } catch (e) {
+                  // Silently ignore any errors in background content fetching
+                }
               }
             }
           }
