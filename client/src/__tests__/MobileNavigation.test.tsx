@@ -4,33 +4,40 @@
  * @jest-environment jsdom
  */
 
+import '@testing-library/jest-dom'; // Import the jest-dom matchers
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Router } from 'wouter';
 import Home from '../pages/Home';
 import { useMobile } from '@/hooks/use-mobile';
-import * as reactQuery from '@tanstack/react-query';
-import { Router } from 'wouter';
 import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 
-// Mock the useMobile hook to simulate mobile view
+// Create mock implementations
 jest.mock('@/hooks/use-mobile', () => ({
-  useMobile: jest.fn()
+  useMobile: jest.fn(() => true) // Mock as mobile view
 }));
 
-// Mock our API responses
-jest.mock('@/lib/queryClient', () => {
-  return {
-    apiRequest: jest.fn(),
-    getQueryFn: jest.fn(),
-    queryClient: {
-      defaultOptions: {
-        queries: {
-          retry: false
-        }
-      }
-    }
-  };
-});
+jest.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: jest.fn()
+  })
+}));
+
+jest.mock('@/hooks/useFeedActions', () => ({
+  useFeedActions: () => ({
+    createFeed: jest.fn(),
+    deleteFeed: jest.fn(),
+  }),
+}));
+
+jest.mock('@/lib/queryClient', () => ({
+  apiRequest: jest.fn(),
+  getQueryFn: jest.fn(),
+  queryClient: {
+    invalidateQueries: jest.fn(),
+    defaultOptions: { queries: { retry: false } }
+  }
+}));
 
 // Sample data for our tests
 const mockCategories = [
@@ -67,19 +74,55 @@ const mockArticles = [
   }
 ];
 
-const mockFeed = {
-  id: 1, 
-  title: 'Hacker News', 
-  url: 'https://news.ycombinator.com', 
-  categoryId: 1, 
-  favicon: null, 
-  description: null
-};
+// Mock tanstack query hooks
+jest.mock('@tanstack/react-query', () => {
+  const actual = jest.requireActual('@tanstack/react-query');
+  
+  return {
+    ...actual,
+    useQuery: jest.fn().mockImplementation((options) => {
+      const queryKey = options.queryKey;
+      
+      if (queryKey && queryKey[0] === '/api/categories') {
+        return { data: mockCategories, isLoading: false };
+      }
+      
+      if (queryKey && queryKey[0] === '/api/feeds') {
+        return { data: mockFeeds, isLoading: false };
+      }
+      
+      if (queryKey && queryKey[0] === '/api/articles') {
+        return { data: mockArticles, isLoading: false, refetch: jest.fn() };
+      }
+      
+      if (queryKey && typeof queryKey[0] === 'string' && queryKey[0].includes('/api/feeds/')) {
+        return { 
+          data: { 
+            id: 1, 
+            title: 'Hacker News', 
+            url: 'https://news.ycombinator.com', 
+            categoryId: 1, 
+            favicon: null, 
+            description: null 
+          }, 
+          isLoading: false 
+        };
+      }
+      
+      return { data: undefined, isLoading: false };
+    }),
+    useMutation: jest.fn().mockImplementation(() => ({
+      mutate: jest.fn(),
+      isPending: false
+    }))
+  };
+});
 
 describe('Mobile Navigation Flow', () => {
-  let queryClient: QueryClient;
+  let queryClient;
   
   beforeEach(() => {
+    // Create a new QueryClient for each test
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -87,28 +130,6 @@ describe('Mobile Navigation Flow', () => {
         },
       },
     });
-    
-    // Set up our mock implementations
-    (useMobile as jest.Mock).mockReturnValue(true);
-    
-    // Mock useQuery responses
-    jest.spyOn(reactQuery, 'useQuery')
-      .mockImplementation((options: any) => {
-        const queryKey = options.queryKey;
-        if (queryKey[0] === '/api/categories') {
-          return { data: mockCategories, isLoading: false } as any;
-        }
-        if (queryKey[0] === '/api/feeds') {
-          return { data: mockFeeds, isLoading: false } as any;
-        }
-        if (queryKey[0] === '/api/articles') {
-          return { data: mockArticles, isLoading: false, refetch: jest.fn() } as any;
-        }
-        if (Array.isArray(queryKey) && queryKey[0].includes('/api/feeds/')) {
-          return { data: mockFeed, isLoading: false } as any;
-        }
-        return { data: undefined, isLoading: false } as any;
-      });
   });
 
   afterEach(() => {
