@@ -75,9 +75,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Delete all existing recommendations so they'll be regenerated
+      // Delete existing recommendations for this user so they'll be regenerated
       // with the new interests profile
-      await storage.deleteAllRecommendations();
+      await storage.deleteUserRecommendations(req.user.id);
       console.log("Deleted all recommendations after profile update");
       
       // Trigger the background job to regenerate recommendations immediately

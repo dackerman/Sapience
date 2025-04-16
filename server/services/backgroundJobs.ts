@@ -48,7 +48,7 @@ export async function processNewArticles() {
       // For our test - even if there are no new articles, we should regenerate recommendations
       // based on existing article summaries if there are no recommendations
       const articleSummaries = await storage.getArticleSummaries();
-      const recommendations = await storage.getRecommendations();
+      const recommendations = await storage.getRecommendations(defaultUser.id);
       
       if (articleSummaries.length > 0 && recommendations.length === 0) {
         console.log(`Found ${articleSummaries.length} existing article summaries with no recommendations`);
@@ -56,7 +56,7 @@ export async function processNewArticles() {
         // Generate recommendations for existing summaries
         for (const summary of articleSummaries) {
           try {
-            await generateRecommendationForSummary(summary, userProfile.interests);
+            await generateRecommendationForSummary(summary, defaultUser.id, userProfile.interests);
           } catch (error) {
             console.error(`Error generating recommendation for summary ${summary.id}:`, error);
           }
@@ -112,13 +112,14 @@ export async function processNewArticles() {
         // If it's relevant, save as a recommendation
         if (isRelevant && relevanceScore >= MIN_RELEVANCE_SCORE) {
           const recommendation: InsertRecommendation = {
+            userId: defaultUser.id,
             articleId: article.id,
             relevanceScore,
             reasonForRecommendation: reason
           };
           
           await storage.createRecommendation(recommendation);
-          console.log(`Created recommendation for article ${article.id} with score ${relevanceScore}`);
+          console.log(`Created recommendation for article ${article.id} with score ${relevanceScore} for user ${defaultUser.id}`);
         } else {
           console.log(`Article ${article.id} not relevant enough (score: ${relevanceScore})`);
         }
