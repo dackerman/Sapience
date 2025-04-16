@@ -16,7 +16,7 @@ async function testForYouNavigation() {
   // Launch a new browser instance with Replit-specific settings
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium-browser',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -45,7 +45,7 @@ async function testForYouNavigation() {
     // Wait for login form and log in
     console.log('Logging in...');
     await page.waitForSelector('input[name="username"]');
-    await page.type('input[name="username"]', 'david.w.ackerman@gmail.com');
+    await page.type('input[name="username"]', 'demo');
     await page.type('input[name="password"]', 'password');
     await page.click('button[type="submit"]');
     
