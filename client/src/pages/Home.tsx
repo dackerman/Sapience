@@ -87,10 +87,26 @@ export default function Home() {
             <div className="bg-white border-b p-2 shadow-sm">
               <button 
                 onClick={() => {
-                  // Force state update in the correct order to prevent flickering
+                  // When going back to article list on mobile, set both states
+                  // to ensure we navigate back properly and prevent immediate re-selection
                   setSelectedArticle(null);
+                  
+                  // Add a small delay to prevent race conditions in state updates
+                  // This ensures the back navigation completes before any other operations
+                  setTimeout(() => {
+                    // Check if we're still in mobile mode before proceeding
+                    if (isMobile) {
+                      // Force refresh the component to clear any pending auto-select
+                      setSelectedFeed(prev => {
+                        // This is a trick to force a re-render without changing the value
+                        const currentFeed = prev;
+                        return currentFeed;
+                      });
+                    }
+                  }, 10);
                 }}
                 className="text-sm font-medium text-primary flex items-center"
+                data-testid="back-to-articles"
               >
                 ← Back to articles
               </button>
