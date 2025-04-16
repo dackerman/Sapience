@@ -9,12 +9,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Article, Feed } from '@/lib/types';
+import type { Article, Feed } from '@shared/schema';
 import { formatDistanceToNow } from 'date-fns';
 import { useFeedActions } from '@/hooks/useFeedActions';
 import { useMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
-import IframeArticle from './IframeArticle';
 
 interface ArticleListProps {
   feedId: number | null;
@@ -22,6 +21,10 @@ interface ArticleListProps {
   selectedArticle: Article | null;
 }
 
+/**
+ * Component that displays a list of articles for a selected feed
+ * Supports both desktop and mobile interaction patterns
+ */
 export default function ArticleList({ feedId, onSelectArticle, selectedArticle }: ArticleListProps) {
   const [sortBy, setSortBy] = useState('newest');
   const { refreshFeed, isRefreshing } = useFeedActions();
@@ -73,9 +76,24 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     }
   };
 
+  // Create excerpt from either content or description
+  const getExcerpt = (article: Article): string => {
+    if (article.content) {
+      return article.content
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+        .substring(0, 200) + (article.content.length > 200 ? '...' : '');
+    } else if (article.description) {
+      return article.description.substring(0, 200) + (article.description.length > 200 ? '...' : '');
+    }
+    return 'No preview available';
+  };
+
   if (!feedId) {
     return (
-      <div className="w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div 
+        className="w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden"
+        data-testid="article-list-empty"
+      >
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center p-6">
             <h3 className="text-lg font-medium text-gray-500">Select a feed to view articles</h3>
@@ -86,7 +104,10 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
   }
 
   return (
-    <div className="w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+    <div 
+      className="w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col overflow-hidden"
+      data-testid="article-list"
+    >
       <div className="py-3 px-4 border-b border-gray-200 flex flex-wrap items-center justify-between bg-white gap-2">
         <div className="flex items-center mr-auto">
           {feedLoading ? (
@@ -106,6 +127,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
             disabled={isRefreshing}
             title="Refresh feed"
             className="h-8 w-8"
+            data-testid="refresh-button"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
@@ -124,7 +146,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
       
       <div className="flex-1 overflow-y-auto">
         {articlesLoading ? (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4" data-testid="articles-loading">
             {Array(5).fill(0).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="h-4 w-20 mb-1" />
@@ -135,18 +157,20 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
             ))}
           </div>
         ) : articles.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full" data-testid="no-articles">
             <p className="text-gray-500">No articles found</p>
           </div>
         ) : (
-          articles.map(article => {
-            return (
+          <div data-testid="articles-container">
+            {articles.map(article => (
               <div 
                 key={article.id}
                 className={`article-item border-b border-gray-200 px-4 py-3 hover:bg-gray-50 cursor-pointer ${
                   selectedArticle?.id === article.id ? 'bg-blue-50 md:bg-blue-50' : ''
                 }`}
                 onClick={() => onSelectArticle(article)}
+                data-testid="article-item"
+                data-article-id={article.id}
               >
                 <div className="flex items-center justify-between mb-1">
                   {article.category ? (
@@ -166,9 +190,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
                   <div 
                     className="text-gray-600 text-sm article-preview"
                     dangerouslySetInnerHTML={{ 
-                      __html: article.content
-                        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
-                        .substring(0, 500) + (article.content.length > 500 ? '...' : '')
+                      __html: getExcerpt(article)
                     }}
                   />
                 ) : article.description ? (
@@ -181,8 +203,8 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
                   </p>
                 )}
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import ArticleList from '@/components/ArticleList';
 import ArticleView from '@/components/ArticleView';
-import { Article, Feed } from '@/lib/types';
-import { useMobile } from '@/hooks/use-mobile';
+import type { Feed } from '@shared/schema';
+import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 
 export default function Home() {
-  const isMobile = useMobile();
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [selectedFeed, setSelectedFeed] = useState<number | null>(null);
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  // Use our custom hook for navigation state
+  const { 
+    sidebarOpen, 
+    selectedFeed, 
+    selectedArticle, 
+    isMobile,
+    toggleSidebar, 
+    handleSelectFeed, 
+    handleSelectArticle,
+    navigateToFeeds,
+    navigateToArticles
+  } = useMobileNavigation();
 
   // Fetch selected feed details
   const { 
@@ -24,28 +32,10 @@ export default function Home() {
 
   // Reset selected article when feed changes
   useEffect(() => {
-    setSelectedArticle(null);
-  }, [selectedFeed]);
-
-  // Handle mobile sidebar toggle
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  // Handle feed selection
-  const handleSelectFeed = (feedId: number) => {
-    setSelectedFeed(feedId);
-    if (isMobile) {
-      setSidebarOpen(false);
+    if (selectedArticle && selectedArticle.feedId !== selectedFeed) {
+      navigateToArticles();
     }
-  };
-
-  // Handle article selection
-  const handleSelectArticle = (article: Article) => {
-    // On mobile, set selected article which changes the view
-    // On desktop, just update the selected article state
-    setSelectedArticle(article);
-  };
+  }, [selectedFeed]);
 
   return (
     <div className="h-screen flex flex-col">
@@ -55,7 +45,7 @@ export default function Home() {
       <div className="md:hidden flex flex-col flex-1 overflow-hidden">
         {/* Three states: feeds > articles > article detail */}
         {sidebarOpen && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" data-testid="feed-view">
             <Sidebar 
               sidebarOpen={true} 
               selectedFeed={selectedFeed} 
@@ -65,10 +55,10 @@ export default function Home() {
         )}
         
         {!sidebarOpen && selectedFeed && !selectedArticle && (
-          <div className="flex-1 overflow-y-auto" key="article-list-view">
+          <div className="flex-1 overflow-y-auto" data-testid="article-list-view">
             <div className="bg-white border-b p-2 shadow-sm">
               <button 
-                onClick={() => setSidebarOpen(true)}
+                onClick={navigateToFeeds}
                 className="text-sm font-medium text-primary flex items-center"
               >
                 ← Back to feeds
@@ -83,28 +73,10 @@ export default function Home() {
         )}
         
         {!sidebarOpen && selectedArticle && (
-          <div className="flex-1 overflow-y-auto flex flex-col" key="article-detail-view">
+          <div className="flex-1 overflow-y-auto flex flex-col" data-testid="article-detail-view">
             <div className="bg-white border-b p-2 shadow-sm">
               <button 
-                onClick={() => {
-                  // When going back to article list on mobile, set both states
-                  // to ensure we navigate back properly and prevent immediate re-selection
-                  setSelectedArticle(null);
-                  
-                  // Add a small delay to prevent race conditions in state updates
-                  // This ensures the back navigation completes before any other operations
-                  setTimeout(() => {
-                    // Check if we're still in mobile mode before proceeding
-                    if (isMobile) {
-                      // Force refresh the component to clear any pending auto-select
-                      setSelectedFeed(prev => {
-                        // This is a trick to force a re-render without changing the value
-                        const currentFeed = prev;
-                        return currentFeed;
-                      });
-                    }
-                  }, 10);
-                }}
+                onClick={navigateToArticles}
                 className="text-sm font-medium text-primary flex items-center"
                 data-testid="back-to-articles"
               >
