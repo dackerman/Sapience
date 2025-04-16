@@ -1,14 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Clock, Bookmark, Share, ExternalLink, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Article, Feed } from '@/lib/types';
-import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-import IframeArticle from './IframeArticle';
+import { Clock, Bookmark, Share, ExternalLink, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Article, Feed } from "@/lib/types";
+import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import IframeArticle from "./IframeArticle";
 
 interface ArticleViewProps {
   article: Article | null;
@@ -16,27 +15,32 @@ interface ArticleViewProps {
   isLoading: boolean;
 }
 
-export default function ArticleView({ article, feed, isLoading }: ArticleViewProps) {
+export default function ArticleView({
+  article,
+  feed,
+  isLoading,
+}: ArticleViewProps) {
   const { toast } = useToast();
-  const [isLoadingExternalContent, setIsLoadingExternalContent] = useState(false);
-  
+
   // Fetch external content if we don't have article content
-  const { 
+  const {
     data: externalContent,
     isLoading: externalContentLoading,
-    refetch: refetchExternalContent
-  } = useQuery<{content: string}>({
-    queryKey: article ? ['/api/articles', article.id, 'content'] : [''],
+    refetch: refetchExternalContent,
+  } = useQuery<{ content: string }>({
+    queryKey: article ? ["/api/articles", article.id, "content"] : [""],
     enabled: !!article && (!article.content || article.content.length < 100),
     staleTime: Infinity,
-    retry: 1
+    retry: 1,
   });
 
   // Mutation for toggling favorite status
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (article: Article) => {
-      const operation = article.favorite ? 'unfavorite' : 'favorite';
-      return apiRequest('POST', `/api/articles/${article.id}/action`, { operation });
+      const operation = article.favorite ? "unfavorite" : "favorite";
+      return apiRequest("POST", `/api/articles/${article.id}/action`, {
+        operation,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/articles`] });
@@ -45,9 +49,9 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
       toast({
         title: "Error",
         description: "Failed to update favorite status",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleToggleFavorite = () => {
@@ -57,17 +61,17 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
 
   const openExternalLink = () => {
     if (!article?.link) return;
-    window.open(article.link, '_blank', 'noopener,noreferrer');
+    window.open(article.link, "_blank", "noopener,noreferrer");
   };
 
   const shareArticle = async () => {
     if (!article) return;
-    
+
     try {
       if (navigator.share) {
         await navigator.share({
           title: article.title,
-          text: article.description,
+          text: article.description || "",
           url: article.link,
         });
       } else {
@@ -75,22 +79,22 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
         await navigator.clipboard.writeText(article.link);
         toast({
           title: "Link copied",
-          description: "Article link copied to clipboard"
+          description: "Article link copied to clipboard",
         });
       }
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error("Error sharing:", error);
     }
   };
 
   // Format the date nicely
-  const formatDate = (date?: Date | string) => {
-    if (!date) return '';
-    
+  const formatDate = (date?: Date | string | null) => {
+    if (!date) return "";
+
     try {
-      return format(new Date(date), 'MMMM d, yyyy');
+      return format(new Date(date), "MMMM d, yyyy");
     } catch (error) {
-      return '';
+      return "";
     }
   };
 
@@ -120,7 +124,7 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
               <div className="flex flex-wrap items-center text-xs text-gray-500 mb-1 gap-1">
                 {article.category && (
                   <span className="font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full mr-2">
-                    {article.category.split(',')[0]}
+                    {article.category.split(",")[0]}
                   </span>
                 )}
                 <span className="truncate">{feed?.title}</span>
@@ -130,7 +134,9 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
                   <span>{formatDate(article.pubDate)}</span>
                 </div>
               </div>
-              <h2 className="text-lg md:text-xl font-semibold line-clamp-2">{article.title}</h2>
+              <h2 className="text-lg md:text-xl font-semibold line-clamp-2">
+                {article.title}
+              </h2>
             </>
           )}
         </div>
@@ -139,10 +145,15 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
             variant="ghost"
             size="sm"
             onClick={handleToggleFavorite}
-            className={`${article.favorite ? 'text-yellow-500' : ''} h-8 w-8 p-0`}
-            title={article.favorite ? 'Remove from bookmarks' : 'Add to bookmarks'}
+            className={`${article.favorite ? "text-yellow-500" : ""} h-8 w-8 p-0`}
+            title={
+              article.favorite ? "Remove from bookmarks" : "Add to bookmarks"
+            }
           >
-            <Bookmark className="h-4 w-4" fill={article.favorite ? 'currentColor' : 'none'} />
+            <Bookmark
+              className="h-4 w-4"
+              fill={article.favorite ? "currentColor" : "none"}
+            />
           </Button>
           <Button
             variant="ghost"
@@ -164,7 +175,7 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
           </Button>
         </div>
       </div>
-      
+
       <ScrollArea className="flex-1 overflow-y-auto p-4 md:p-6">
         {isLoading ? (
           <div className="space-y-4 max-w-3xl mx-auto">
@@ -177,38 +188,41 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
         ) : (
           <div className="article-content max-w-3xl mx-auto">
             {article.imageUrl && (
-              <img 
-                src={article.imageUrl} 
-                alt={article.title} 
+              <img
+                src={article.imageUrl}
+                alt={article.title}
                 className="w-full rounded-lg mb-4 md:mb-6 max-h-64 md:max-h-96 object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
+                  target.style.display = "none";
                 }}
               />
             )}
-            
+
             {externalContentLoading ? (
               <div className="space-y-4 py-4">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-3/4" />
                 <div className="flex justify-center mt-4">
-                  <p className="text-sm text-gray-500">Fetching original article content...</p>
+                  <p className="text-sm text-gray-500">
+                    Fetching original article content...
+                  </p>
                 </div>
               </div>
             ) : (
               <>
                 {/* Use IframeArticle to isolate external CSS */}
-                <IframeArticle 
-                  content={(externalContent?.content) || 
-                          article.content || 
-                          article.description || 
-                          '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'}
+                <IframeArticle
+                  content={
+                    externalContent?.content ||
+                    article.content ||
+                    article.description ||
+                    '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'
+                  }
                   title={article.title}
-                  maxHeight={2000} // Use a large value to show full content
                 />
-                
+
                 <div className="flex justify-end mt-4">
                   <Button
                     variant="outline"
@@ -221,11 +235,11 @@ export default function ArticleView({ article, feed, isLoading }: ArticleViewPro
                     Refresh content
                   </Button>
                 </div>
-                
+
                 <div className="mt-6 md:mt-8 border-t border-gray-200 pt-4">
-                  <a 
-                    href={article.link} 
-                    target="_blank" 
+                  <a
+                    href={article.link}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline inline-flex items-center text-sm md:text-base"
                   >

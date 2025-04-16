@@ -1,22 +1,22 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 interface IframeArticleProps {
   content: string;
   title: string;
-  maxHeight?: number;
 }
 
-export default function IframeArticle({ content, title, maxHeight = 220 }: IframeArticleProps) {
+export default function IframeArticle({ content, title }: IframeArticleProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!iframeRef.current) return;
 
     const iframe = iframeRef.current;
-    const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
-    
+    const iframeDocument =
+      iframe.contentDocument || iframe.contentWindow?.document;
+
     if (!iframeDocument) return;
-    
+
     // Create HTML content for the iframe
     const htmlContent = `
       <!DOCTYPE html>
@@ -69,48 +69,33 @@ export default function IframeArticle({ content, title, maxHeight = 220 }: Ifram
       </body>
       </html>
     `;
-    
+
     // Write the content to the iframe
     iframeDocument.open();
     iframeDocument.write(htmlContent);
     iframeDocument.close();
-    
-    // Adjust iframe height based on content
-    const body = iframeDocument.body;
-    if (body) {
-      const resizeObserver = new ResizeObserver(() => {
-        const height = Math.min(body.scrollHeight, maxHeight);
-        iframe.style.height = `${height}px`;
-      });
-      
-      resizeObserver.observe(body);
-      
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }
-  }, [content, title, maxHeight]);
+  }, [content, title]);
 
   return (
-    <div className="iframe-article-container" style={{ position: 'relative' }}>
+    <div className="iframe-article-container" style={{ position: "relative" }}>
       <iframe
         ref={iframeRef}
         title={title}
         className="article-iframe"
         style={{
-          width: '100%',
-          border: 'none',
-          overflow: 'hidden',
-          maxHeight: `${maxHeight}px`,
-          backgroundColor: 'transparent',
+          width: "100%",
+          border: "none",
+          overflow: "hidden",
+          backgroundColor: "transparent",
         }}
       />
       {/* Gradient overlay to fade out content */}
-      <div 
-        className="absolute inset-x-0 bottom-0 h-12" 
-        style={{ 
-          background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 1) 100%)',
-          pointerEvents: 'none'
+      <div
+        className="absolute inset-x-0 bottom-0 h-12"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 1) 100%)",
+          pointerEvents: "none",
         }}
       />
     </div>
