@@ -1,9 +1,11 @@
+/// <reference types="jest" />
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
 import Home from '../pages/Home';
 import { useMobile } from '@/hooks/use-mobile';
 import * as reactQuery from '@tanstack/react-query';
+import { Router } from 'wouter';
 
 // Mock the useMobile hook to simulate mobile view
 jest.mock('@/hooks/use-mobile', () => ({
@@ -84,7 +86,7 @@ describe('Mobile Navigation Flow', () => {
     
     // Mock useQuery responses
     jest.spyOn(reactQuery, 'useQuery')
-      .mockImplementation(({ queryKey }) => {
+      .mockImplementation(({ queryKey }: { queryKey: string | string[] }) => {
         if (queryKey[0] === '/api/categories') {
           return { data: mockCategories, isLoading: false } as any;
         }
@@ -107,11 +109,11 @@ describe('Mobile Navigation Flow', () => {
 
   test('should navigate from sidebar to article list to article detail and back', async () => {
     render(
-      <MemoryRouter>
+      <Router base="/">
         <QueryClientProvider client={queryClient}>
           <Home />
         </QueryClientProvider>
-      </MemoryRouter>
+      </Router>
     );
 
     // Step 1: Verify sidebar is shown with feed options
