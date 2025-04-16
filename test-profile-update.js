@@ -21,13 +21,13 @@ async function testProfileUpdates() {
       withCredentials: true
     });
     
-    // Login using our auth endpoint
-    const loginResponse = await api.post('/api/auth/login', {
+    // Login using the correct endpoint
+    const loginResponse = await api.post('/api/login', {
       username: 'demo',
-      password: 'demo123'
+      password: 'password'  // This matches the default user password created in auth.ts
     });
     
-    if (!loginResponse.data || !loginResponse.data.success) {
+    if (!loginResponse.data || !loginResponse.data.id) {
       throw new Error('Login failed: ' + JSON.stringify(loginResponse.data));
     }
     
