@@ -84,6 +84,7 @@ export default function IframeArticle({ content, title }: IframeArticleProps) {
         className="article-iframe"
         style={{
           width: "100%",
+          height: "1000px",
           border: "none",
           overflow: "hidden",
           backgroundColor: "transparent",
