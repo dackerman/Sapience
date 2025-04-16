@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { CookieJar } from 'tough-cookie';
+import { HttpCookieAgent } from 'http-cookie-agent/http';
 
 /**
  * This test verifies the user-specific recommendation regeneration flow:
@@ -15,9 +17,14 @@ async function testProfileUpdates() {
     console.log('-----------------------------------------------');
     console.log('Step 1: Logging in as demo user...');
     
+    // Setup cookie jar for maintaining cookies across requests
+    const cookieJar = new CookieJar();
+    
     // Create an axios instance that will handle cookies properly
     const api = axios.create({
       baseURL: 'http://localhost:5000',
+      httpAgent: new HttpCookieAgent({ cookies: { jar: cookieJar } }),
+      httpsAgent: new HttpCookieAgent({ cookies: { jar: cookieJar } }),
       withCredentials: true
     });
     
@@ -31,7 +38,10 @@ async function testProfileUpdates() {
       throw new Error('Login failed: ' + JSON.stringify(loginResponse.data));
     }
     
-    console.log('✓ Login successful!');
+    // Print the cookie we received (just for debugging)
+    console.log('✓ Login successful! Session cookie received:'
+      + cookieJar.getCookiesSync('http://localhost:5000')
+          .map(c => ` ${c.key}`).join(','));
     
     // Step 2: Get current recommendations
     console.log('\nStep 2: Checking current recommendations...');
