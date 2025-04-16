@@ -14,96 +14,112 @@ const puppeteer = require('puppeteer');
 async function testMobileNavigation() {
   console.log('Starting mobile navigation test...');
   
-  // Launch the browser with mobile emulation
+  // Launch browser
   const browser = await puppeteer.launch({
     headless: false, // Set to true for headless testing
-    defaultViewport: {
-      width: 375, // iPhone X width
-      height: 812, // iPhone X height
-      isMobile: true,
-      hasTouch: true
-    }
+    args: ['--window-size=375,812'] // iPhone X dimensions
   });
   
   try {
+    // Create a new page
     const page = await browser.newPage();
     
-    // Emulate iPhone X
-    await page.emulate({
-      viewport: {
-        width: 375,
-        height: 812,
-        deviceScaleFactor: 3,
-        isMobile: true,
-        hasTouch: true,
-        isLandscape: false
-      },
-      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+    // Set viewport to mobile size
+    await page.setViewport({
+      width: 375,
+      height: 812,
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true
     });
     
-    // Navigate to the app
+    // Navigate to the application
     console.log('Navigating to the application...');
-    await page.goto('http://localhost:5000', { waitUntil: 'networkidle2' });
-    
-    // Wait for the page to load
-    await page.waitForSelector('.md\\:hidden', { visible: true });
-    console.log('Application loaded in mobile view');
-    
-    // Step 1: Verify sidebar is shown with feeds
-    const feedsVisible = await page.evaluate(() => {
-      const feedElements = document.querySelectorAll('.md\\:hidden .flex-1.overflow-y-auto div[class*="flex items-center"]');
-      return feedElements.length > 0;
+    await page.goto('http://localhost:5000', {
+      waitUntil: 'networkidle2',
+      timeout: 60000
     });
     
-    console.log(`Sidebar feeds visible: ${feedsVisible ? 'Yes ✓' : 'No ✗'}`);
+    // Wait for the application to load (sidebar should be visible)
+    console.log('Waiting for sidebar to be visible...');
+    await page.waitForSelector('.sidebar', { visible: true, timeout: 10000 });
     
-    // Step 2: Select a feed to show article list
+    // Find and click on a feed (e.g., "Hacker News")
     console.log('Selecting a feed...');
-    const feedSelector = '.md\\:hidden .flex-1.overflow-y-auto div[class*="flex items-center"]';
-    await page.waitForSelector(feedSelector, { visible: true });
-    await page.click(feedSelector);
-    
-    // Wait for article list to load
-    await page.waitForSelector('.article-item', { visible: true });
-    console.log('Article list loaded ✓');
-    
-    // Verify "Back to feeds" button is visible
-    const backToFeedsVisible = await page.evaluate(() => {
-      return !!document.querySelector('button:contains("← Back to feeds")');
+    const feedElement = await page.waitForXPath("//div[contains(@class, 'sidebar')]//div[contains(text(), 'News')]", { 
+      visible: true,
+      timeout: 10000
     });
-    console.log(`Back to feeds button visible: ${backToFeedsVisible ? 'Yes ✓' : 'No ✗'}`);
     
-    // Step 3: Select an article to view its details
-    console.log('Selecting an article...');
-    await page.click('.article-item');
-    
-    // Wait for article detail to load
-    await page.waitForFunction(() => {
-      return !!document.querySelector('button:contains("← Back to articles")');
-    });
-    console.log('Article detail loaded ✓');
-    
-    // Step 4: Navigate back to article list
-    console.log('Navigating back to article list...');
-    await page.click('button:contains("← Back to articles")');
-    
-    // Wait for article list to be visible again
-    await page.waitForSelector('.article-item', { visible: true });
-    console.log('Returned to article list ✓');
-    
-    // Step 5: Navigate back to feeds
-    console.log('Navigating back to feeds...');
-    await page.click('button:contains("← Back to feeds")');
-    
-    // Wait for feed list to be visible again
-    await page.waitForSelector(feedSelector, { visible: true });
-    console.log('Returned to feed list ✓');
-    
-    console.log('\nMobile navigation test completed successfully! ✅');
-    
+    if (feedElement) {
+      await feedElement.click();
+      
+      // Wait for article list to be visible
+      console.log('Waiting for article list to be visible...');
+      await page.waitForSelector('.article-list', { visible: true, timeout: 10000 });
+      
+      // Verify "Back to feeds" button is visible
+      const backToFeedsBtn = await page.$('button:has-text("← Back to feeds")');
+      if (backToFeedsBtn) {
+        console.log('✓ Back to feeds button is visible');
+      } else {
+        console.error('❌ Back to feeds button not found');
+      }
+      
+      // Find and click on an article
+      console.log('Selecting an article...');
+      const articleElement = await page.waitForSelector('.article-list-item', { 
+        visible: true,
+        timeout: 10000
+      });
+      
+      if (articleElement) {
+        await articleElement.click();
+        
+        // Wait for article content to be visible
+        console.log('Waiting for article content to be visible...');
+        await page.waitForSelector('.article-content', { visible: true, timeout: 10000 });
+        
+        // Verify "Back to articles" button is visible
+        const backToArticlesBtn = await page.$('button:has-text("← Back to articles")');
+        if (backToArticlesBtn) {
+          console.log('✓ Back to articles button is visible');
+          
+          // Navigate back to article list
+          console.log('Navigating back to article list...');
+          await backToArticlesBtn.click();
+          
+          // Wait for article list to be visible again
+          await page.waitForSelector('.article-list', { visible: true, timeout: 10000 });
+          console.log('✓ Successfully navigated back to article list');
+          
+          // Find and click on "Back to feeds" button
+          const backToFeedsBtn = await page.$('button:has-text("← Back to feeds")');
+          if (backToFeedsBtn) {
+            console.log('Navigating back to feeds...');
+            await backToFeedsBtn.click();
+            
+            // Wait for sidebar to be visible again
+            await page.waitForSelector('.sidebar', { visible: true, timeout: 10000 });
+            console.log('✓ Successfully navigated back to feeds sidebar');
+            
+            console.log('✓ Mobile navigation test passed!');
+          } else {
+            console.error('❌ Back to feeds button not found');
+          }
+        } else {
+          console.error('❌ Back to articles button not found');
+        }
+      } else {
+        console.error('❌ No articles found in the list');
+      }
+    } else {
+      console.error('❌ Feed not found in sidebar');
+    }
   } catch (error) {
     console.error('Test failed with error:', error);
   } finally {
+    // Close browser
     await browser.close();
   }
 }
