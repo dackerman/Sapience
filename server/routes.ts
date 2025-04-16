@@ -80,10 +80,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteUserRecommendations(req.user.id);
       console.log("Deleted all recommendations after profile update");
       
-      // Trigger the background job to regenerate recommendations immediately
-      console.log("Triggering immediate article processing after profile update");
-      processNewArticles().catch(error => {
-        console.error("Error processing articles after profile update:", error);
+      // Trigger the background job to regenerate recommendations immediately for this specific user
+      console.log(`Triggering immediate article processing for user ${req.user.id} after profile update`);
+      processNewArticles(req.user.id).catch(error => {
+        console.error(`Error processing articles for user ${req.user.id} after profile update:`, error);
         // Don't fail the request if processing fails
       });
       

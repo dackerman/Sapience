@@ -83,10 +83,17 @@ export async function processNewArticles(specificUserId?: number) {
             // If processing a specific user, always regenerate their recommendations
             console.log(`Regenerating recommendations for user ${user.id} - profile update triggered`);
             
+            // Get the latest profile to ensure we're using the most up-to-date interests
+            const latestProfile = await storage.getUserProfile(user.id);
+            if (!latestProfile) {
+              console.log(`No profile found for user ${user.id}, skipping recommendation generation`);
+              continue;
+            }
+            
             // Generate recommendations for all summaries for this specific user
             for (const summary of articleSummaries) {
               try {
-                await generateRecommendationForSummary(summary, user.id, profile.interests);
+                await generateRecommendationForSummary(summary, user.id, latestProfile.interests);
               } catch (error) {
                 console.error(`Error generating recommendation for summary ${summary.id}:`, error);
               }
@@ -98,10 +105,17 @@ export async function processNewArticles(specificUserId?: number) {
             // For regular scheduled jobs, only generate if no recommendations exist
             console.log(`Found ${articleSummaries.length} existing article summaries with no recommendations for user ${user.id}`);
             
+            // Get the latest profile to ensure we're using the most up-to-date interests
+            const latestProfile = await storage.getUserProfile(user.id);
+            if (!latestProfile) {
+              console.log(`No profile found for user ${user.id}, skipping recommendation generation`);
+              continue;
+            }
+            
             // Generate recommendations for existing summaries
             for (const summary of articleSummaries) {
               try {
-                await generateRecommendationForSummary(summary, user.id, profile.interests);
+                await generateRecommendationForSummary(summary, user.id, latestProfile.interests);
               } catch (error) {
                 console.error(`Error generating recommendation for summary ${summary.id}:`, error);
               }
@@ -120,7 +134,7 @@ export async function processNewArticles(specificUserId?: number) {
       return;
     }
     
-    // Step 3: For each article, generate a summary
+    // Step 3: For each article, generate a summary and recommendations for all target users
     for (const article of unprocessedArticles) {
       try {
         console.log(`Processing article: ${article.title}`);
@@ -151,27 +165,39 @@ export async function processNewArticles(specificUserId?: number) {
         const savedSummary = await storage.createArticleSummary(articleSummary);
         console.log(`Created summary for article ${article.id}`);
         
-        // Step 4: Analyze if this article is relevant to the user's interests
-        const { isRelevant, relevanceScore, reason } = await analyzeArticleRelevance(
-          userProfile.interests,
-          article.title,
-          summary,
-          keywords
-        );
-        
-        // If it's relevant, save as a recommendation
-        if (isRelevant && relevanceScore >= MIN_RELEVANCE_SCORE) {
-          const recommendation: InsertRecommendation = {
-            userId: defaultUser.id,
-            articleId: article.id,
-            relevanceScore,
-            reasonForRecommendation: reason
-          };
+        // Step 4: For each user, analyze if this article is relevant to their interests
+        for (const { user, profile } of targetUsers) {
+          console.log(`Analyzing article relevance for user ${user.id}`);
           
-          await storage.createRecommendation(recommendation);
-          console.log(`Created recommendation for article ${article.id} with score ${relevanceScore} for user ${defaultUser.id}`);
-        } else {
-          console.log(`Article ${article.id} not relevant enough (score: ${relevanceScore})`);
+          // Get the latest profile to ensure we're using the most up-to-date interests
+          const latestProfile = await storage.getUserProfile(user.id);
+          if (!latestProfile) {
+            console.log(`No profile found for user ${user.id}, skipping recommendation generation`);
+            continue;
+          }
+          
+          // Analyze if this article is relevant to the user's interests
+          const { isRelevant, relevanceScore, reason } = await analyzeArticleRelevance(
+            latestProfile.interests,
+            article.title,
+            summary,
+            keywords
+          );
+          
+          // If it's relevant, save as a recommendation
+          if (isRelevant && relevanceScore >= MIN_RELEVANCE_SCORE) {
+            const recommendation: InsertRecommendation = {
+              userId: user.id,
+              articleId: article.id,
+              relevanceScore,
+              reasonForRecommendation: reason
+            };
+            
+            await storage.createRecommendation(recommendation);
+            console.log(`Created recommendation for article ${article.id} with score ${relevanceScore} for user ${user.id}`);
+          } else {
+            console.log(`Article ${article.id} not relevant enough for user ${user.id} (score: ${relevanceScore})`);
+          }
         }
       } catch (error) {
         console.error(`Error processing article ${article.id}:`, error);
