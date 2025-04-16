@@ -31,7 +31,7 @@ export default function Header({ toggleSidebar }: HeaderProps) {
             </button>
             <div className="flex items-center">
               <RssIcon className="h-6 w-6 text-primary" />
-              <h1 className="ml-2 text-xl font-semibold text-gray-800">FeedReader</h1>
+              <h1 className="ml-2 text-xl font-semibold text-gray-800">Sapience</h1>
             </div>
           </div>
           
