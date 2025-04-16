@@ -6,22 +6,9 @@ import {
   userProfiles, type UserProfile, type InsertUserProfile,
   articleSummaries, type ArticleSummary, type InsertArticleSummary,
   recommendations, type Recommendation, type InsertRecommendation,
-  type ArticleWithSummary
+  type ArticleWithSummary,
+  users, type User, type InsertUser
 } from "@shared/schema";
-
-// We don't have users in the schema yet, so let's define them here for now
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  password: string;
-}
-
-interface InsertUser {
-  username: string;
-  email: string;
-  password: string;
-}
 
 export interface IStorage {
   // User methods
@@ -360,17 +347,32 @@ import { db } from "./db";
 import { and, eq, desc, asc, isNull, count, sql, not, notInArray } from "drizzle-orm";
 
 export class DatabaseStorage implements IStorage {
-  // User methods - Not implemented for PostgreSQL as we don't have users table
+  // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return undefined;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id));
+    
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return undefined;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
+    
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    throw new Error("Users not implemented in database version");
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    
+    return user;
   }
 
   // Category methods
@@ -639,23 +641,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User Profile methods
-  async getUserProfile(): Promise<UserProfile | undefined> {
-    // Since we only have one user profile in this version, just get the first one
+  async getUserProfile(userId: number): Promise<UserProfile | undefined> {
     const [profile] = await db
       .select()
       .from(userProfiles)
-      .limit(1);
+      .where(eq(userProfiles.userId, userId));
     
     return profile;
   }
 
   async createUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
-    // First check if a profile already exists
-    const existingProfile = await this.getUserProfile();
+    // First check if a profile already exists for this user
+    const existingProfile = await this.getUserProfile(profile.userId);
     
     if (existingProfile) {
       // If a profile already exists, update it instead
-      return this.updateUserProfile(profile) as Promise<UserProfile>;
+      return this.updateUserProfile(existingProfile.userId, { interests: profile.interests }) as Promise<UserProfile>;
     }
 
     const [newProfile] = await db
@@ -670,8 +671,8 @@ export class DatabaseStorage implements IStorage {
     return newProfile;
   }
 
-  async updateUserProfile(profileUpdate: Partial<UserProfile>): Promise<UserProfile | undefined> {
-    const existingProfile = await this.getUserProfile();
+  async updateUserProfile(userId: number, profileUpdate: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    const existingProfile = await this.getUserProfile(userId);
     
     if (!existingProfile) {
       return undefined;
@@ -683,7 +684,7 @@ export class DatabaseStorage implements IStorage {
         ...profileUpdate,
         updatedAt: new Date()
       })
-      .where(eq(userProfiles.id, existingProfile.id))
+      .where(eq(userProfiles.userId, userId))
       .returning();
     
     return updatedProfile;

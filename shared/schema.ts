@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -69,15 +69,36 @@ export const insertArticleSchema = createInsertSchema(articles).pick({
 export type InsertArticle = z.infer<typeof insertArticleSchema>;
 export type Article = typeof articles.$inferSelect;
 
+// Users table for authentication
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 50 }).notNull().unique(),
+  email: varchar("email", { length: 100 }).notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  email: true,
+  password: true,
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
 // User Profile schema for storing interest preferences
 export const userProfiles = pgTable("user_profiles", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
   interests: text("interests").notNull(),  // Text field for storing interests
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles).pick({
+  userId: true,
   interests: true,
 });
 
@@ -132,6 +153,19 @@ export const validateFeedUrlSchema = z.object({
 export const articleOperationSchema = z.object({
   id: z.number(),
   operation: z.enum(["read", "unread", "favorite", "unfavorite"]),
+});
+
+// User registration validation schema
+export const registerUserSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(50),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+// User login validation schema
+export const loginUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 // User profile schema validation
