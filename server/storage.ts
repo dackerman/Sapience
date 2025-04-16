@@ -96,6 +96,10 @@ export class MemStorage implements IStorage {
   }
 
   // User methods
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -108,7 +112,13 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userId++;
-    const user: User = { ...insertUser, id };
+    const now = new Date();
+    const user: User = { 
+      ...insertUser, 
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
     this.users.set(id, user);
     return user;
   }
@@ -335,6 +345,10 @@ export class MemStorage implements IStorage {
     return undefined;
   }
   
+  async deleteAllRecommendations(): Promise<boolean> {
+    return true; // Not applicable for MemStorage, but return true to indicate success
+  }
+  
   async getRecommendedArticles(): Promise<ArticleWithSummary[]> {
     return [];
   }
@@ -350,6 +364,12 @@ import { and, eq, desc, asc, isNull, count, sql, not, notInArray } from "drizzle
 
 export class DatabaseStorage implements IStorage {
   // User methods
+  async getUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users);
+  }
+  
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db
       .select()
@@ -832,6 +852,15 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return recommendation;
+  }
+  
+  async deleteAllRecommendations(): Promise<boolean> {
+    await db
+      .delete(recommendations)
+      .where(sql`1=1`); // This deletes all records
+    
+    console.log('All recommendations deleted');
+    return true;
   }
 
   // Combined queries for "For You" page

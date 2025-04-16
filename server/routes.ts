@@ -74,6 +74,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Delete all existing recommendations so they'll be regenerated
+      // with the new interests profile
+      await storage.deleteAllRecommendations();
+      console.log("Deleted all recommendations after profile update");
+      
+      // Trigger the background job to regenerate recommendations
+      // This will happen on the next background job cycle
+      
       res.json(userProfile);
     } catch (error) {
       console.error("Error updating user profile:", error);
