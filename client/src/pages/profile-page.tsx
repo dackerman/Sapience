@@ -1,8 +1,8 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
+import { UserProfile } from "../../shared/schema";
 
 // Profile form schema
 const profileSchema = z.object({
@@ -24,19 +25,18 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Get user profile
   const {
     data: profile,
     isLoading: profileLoading,
     error: profileError,
-  } = useQuery({
+  } = useQuery<UserProfile>({
     queryKey: ["/api/profile"],
     enabled: !!user,
   });
 
-  // Profile form
+  // Profile form with empty default values
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -44,15 +44,15 @@ export default function ProfilePage() {
     },
   });
 
-  // Update form values when profile data is loaded
+  // Update form values when profile data is loaded or changes
   useEffect(() => {
-    if (profile && !isInitialized) {
+    if (profile) {
+      // Reset the form with the profile data
       form.reset({
         interests: profile.interests || "",
       });
-      setIsInitialized(true);
     }
-  }, [profile, form, isInitialized]);
+  }, [profile, form]);
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
