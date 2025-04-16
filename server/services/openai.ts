@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 import { ArticleSummary, Recommendation } from "@shared/schema";
 
-// The newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const model = "gpt-4o";
+// Changed from gpt-4o to o4-mini as requested by the user
+const model = "o4-mini";
 
 // Initialize OpenAI client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
