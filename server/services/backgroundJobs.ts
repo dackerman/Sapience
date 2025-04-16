@@ -52,15 +52,17 @@ export async function processNewArticles() {
       try {
         console.log(`Processing article: ${article.title}`);
         
-        // Prepare the content to summarize (using description or content)
-        const contentToSummarize = article.content || article.description || '';
+        // Prepare the content to summarize (preferring description over full content as it's more concise)
+        // If we have both, use description as it's usually more focused and shorter
+        const contentToSummarize = article.description || article.content || '';
         
         if (!contentToSummarize) {
           console.log(`Skipping article ${article.id} - no content to summarize`);
           continue;
         }
         
-        // Generate summary
+        // Generate summary - the generateArticleSummary function now handles
+        // content truncation and HTML extraction internally
         const { summary, keywords } = await generateArticleSummary(
           article.title,
           contentToSummarize

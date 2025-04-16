@@ -8,6 +8,43 @@ const model = "gpt-4o";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /**
+ * Extracts the main content from HTML, removing tags, scripts, and styles
+ */
+function extractMainContent(htmlContent: string): string {
+  // If it's not HTML, return as is
+  if (!htmlContent.includes('<html') && !htmlContent.includes('<body')) {
+    return htmlContent;
+  }
+  
+  // Very basic extraction - remove HTML tags, scripts, styles
+  let content = htmlContent;
+  content = content.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
+  content = content.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
+  content = content.replace(/<[^>]*>/g, ' ');
+  content = content.replace(/\s+/g, ' ').trim();
+  
+  return content;
+}
+
+/**
+ * Limits content length to avoid OpenAI rate limits
+ */
+function truncateContent(content: string, maxChars = 4000): string {
+  if (!content) return '';
+  
+  // Extract main content if it's HTML
+  const extractedContent = extractMainContent(content);
+  
+  // Truncate if needed
+  if (extractedContent.length <= maxChars) {
+    return extractedContent;
+  }
+  
+  // Take first portion which likely has the most important content
+  return extractedContent.substring(0, maxChars) + '... [content truncated]';
+}
+
+/**
  * Generates a summary of an article using OpenAI
  * @param title The article title
  * @param content The article content to summarize
@@ -15,12 +52,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
  */
 export async function generateArticleSummary(title: string, content: string): Promise<{ summary: string; keywords: string[] }> {
   try {
+    // Truncate content to avoid rate limits
+    const truncatedContent = truncateContent(content);
+    
     const prompt = `
     Summarize the following article in 2-3 sentences. Also extract 3-5 main keywords or topics.
     
     Title: ${title}
     
-    Content: ${content}
+    Content: ${truncatedContent}
     
     Format your response as a JSON object with the following structure:
     {
@@ -35,11 +75,13 @@ export async function generateArticleSummary(title: string, content: string): Pr
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    // Handle potential null content from API response
+    const responseContent = response.choices[0]?.message?.content || '{"summary":"Unable to generate summary","keywords":[]}';
+    const result = JSON.parse(responseContent);
     
     return {
       summary: result.summary,
-      keywords: result.keywords,
+      keywords: result.keywords || [],
     };
   } catch (error) {
     console.error("Error generating summary:", error);
@@ -94,12 +136,14 @@ export async function analyzeArticleRelevance(
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    // Handle potential null content from API response
+    const responseContent = response.choices[0]?.message?.content || '{"isRelevant":false,"relevanceScore":0,"reason":"Unable to analyze relevance"}';
+    const result = JSON.parse(responseContent);
     
     return {
-      isRelevant: result.isRelevant,
-      relevanceScore: result.relevanceScore,
-      reason: result.reason,
+      isRelevant: Boolean(result.isRelevant),
+      relevanceScore: Number(result.relevanceScore) || 0,
+      reason: result.reason || "Unable to determine relevance",
     };
   } catch (error) {
     console.error("Error analyzing relevance:", error);
