@@ -11,9 +11,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
-import { UserProfile } from "../../shared/schema";
 
-// Profile form schema
+// Define the user profile interface
+interface UserProfile {
+  id: number;
+  userId: number;
+  interests: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Profile form schema for validation
 const profileSchema = z.object({
   interests: z.string()
     .min(10, "Please describe your interests with at least 10 characters")
@@ -36,21 +44,28 @@ export default function ProfilePage() {
     enabled: !!user,
   });
 
-  // Profile form with empty default values
+  // Profile form initialization
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      interests: "",
+      interests: profile?.interests || "",
+    },
+    values: {
+      interests: profile?.interests || "",
     },
   });
 
   // Update form values when profile data is loaded or changes
   useEffect(() => {
     if (profile) {
+      console.log('Profile data loaded:', profile);
+      
       // Reset the form with the profile data
-      form.reset({
-        interests: profile.interests || "",
-      });
+      const interests = profile.interests || "";
+      console.log('Setting interests to:', interests);
+      
+      // Update form fields explicitly
+      form.setValue("interests", interests);
     }
   }, [profile, form]);
 
