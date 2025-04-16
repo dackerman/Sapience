@@ -40,6 +40,12 @@ The Sapience interface provides a clean, distraction-free reading experience wit
 ![Sapience Desktop Screenshot](assets/sapience-screenshot.png)
 *Left: Feed list with categories | Center: Article list | Right: Article content view with reading tools*
 
+### "For You" Page
+The AI-powered recommendation system provides personalized content with explanations of why articles might interest you:
+
+![Sapience For You Page](assets/sapience-foryou-screenshot.png)
+*The "For You" page showing AI-generated article summaries and relevance explanations with confidence scores*
+
 ## Technical Architecture
 
 Sapience is built using modern web technologies:
