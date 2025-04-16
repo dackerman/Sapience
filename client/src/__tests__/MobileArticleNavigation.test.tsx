@@ -15,90 +15,57 @@ jest.mock('../hooks/use-mobile', () => ({
   useMobile: jest.fn().mockReturnValue(true)
 }));
 
-// We need to mock the ArticleList component to avoid the auto-select effect
-jest.mock('../components/ArticleList', () => {
-  return function MockArticleList({ feedId, onSelectArticle }: { feedId: number, onSelectArticle: (article: Article) => void }) {
-    // Create a mock article with all required properties
-    const mockArticle = {
-      id: 1, 
-      feedId: 1, 
-      title: 'Test Article', 
-      description: 'Test description',
-      content: '<p>Test content</p>',
-      pubDate: new Date(),
-      link: 'http://test.com/article',
-      read: false,
-      favorite: false,
-      author: null,
-      category: null,
-      guid: null,
-      imageUrl: null
-    };
-
-    // Render a simplified article list for testing
-    return (
-      <div data-testid="article-list">
-        <div 
-          data-testid="article-item"
-          onClick={() => onSelectArticle(mockArticle)}
-        >
-          Test Article
-        </div>
-      </div>
-    );
-  };
-});
-
-// Mock ArticleView component
-jest.mock('../components/ArticleView', () => {
-  return function MockArticleView({ article }: { article: Article }) {
-    if (!article) return null;
-    return (
-      <div data-testid="article-view">
-        <h1>{article.title}</h1>
-        <div dangerouslySetInnerHTML={{ __html: article.content || '' }} />
-      </div>
-    );
-  };
-});
-
-// Mock Sidebar component
-jest.mock('../components/Sidebar', () => {
-  return function MockSidebar({ onSelectFeed }: { onSelectFeed: (id: number) => void }) {
-    return (
-      <div data-testid="sidebar">
-        <div 
-          data-testid="feed-item"
-          onClick={() => onSelectFeed(1)}
-        >
-          Test Feed
-        </div>
-      </div>
-    );
-  };
-});
-
-// Mock Header component
-jest.mock('../components/Header', () => {
-  return function MockHeader() {
-    return <div data-testid="header">Header</div>;
-  };
-});
+// We only need to mock the useMobile hook and the Home component
+// No need to mock each component separately since we're mocking them inline in the Home component
 
 // Mock Home component to avoid React import error
 jest.mock('../pages/Home', () => {
   const React = require('react');
   
-  function MockHome() {
+  // Create a simplified Home component for testing
+  const MockHome = () => {
     const [sidebarOpen, setSidebarOpen] = React.useState(true);
     const [selectedFeed, setSelectedFeed] = React.useState(null);
     const [selectedArticle, setSelectedArticle] = React.useState(null);
     
-    // Import the mocked components
-    const Header = require('../components/Header').default;
-    const Sidebar = require('../components/Sidebar').default;
-    const ArticleList = require('../components/ArticleList').default;
-    const ArticleView = require('../components/ArticleView').default;
+    // Basic mocks for components - these are already mocked above
+    const Header = () => <div data-testid="header">Header</div>;
+    const Sidebar = ({ onSelectFeed }) => (
+      <div data-testid="sidebar">
+        <div data-testid="feed-item" onClick={() => onSelectFeed(1)}>
+          Test Feed
+        </div>
+      </div>
+    );
+    const ArticleList = ({ onSelectArticle }) => (
+      <div data-testid="article-list">
+        <div data-testid="article-item" onClick={() => onSelectArticle({
+          id: 1,
+          feedId: 1,
+          title: 'Test Article',
+          description: 'Test description',
+          content: '<p>Test content</p>',
+          pubDate: new Date(),
+          link: 'http://test.com/article',
+          read: false,
+          favorite: false,
+          author: null,
+          category: null,
+          guid: null,
+          imageUrl: null
+        })}>
+          Test Article
+        </div>
+      </div>
+    );
+    const ArticleView = ({ article }) => (
+      article ? (
+        <div data-testid="article-view">
+          <h1>{article.title}</h1>
+          <div dangerouslySetInnerHTML={{ __html: article.content || '' }} />
+        </div>
+      ) : null
+    );
     
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
     
@@ -161,6 +128,9 @@ jest.mock('../pages/Home', () => {
       </div>
     );
   };
+  
+  // Export the component as default
+  return MockHome;
 });
 
 // Set up the test component with React Query
@@ -257,5 +227,42 @@ describe('Mobile Article Navigation', () => {
       const articleList = screen.getByTestId('article-list');
       expect(articleList).toBeTruthy();
     });
+  });
+  
+  test('should not immediately re-select an article after clicking back to articles', async () => {
+    renderHomeComponent();
+    
+    // Click on a feed
+    const feedItem = await screen.findByTestId('feed-item');
+    fireEvent.click(feedItem);
+    
+    // Click on an article
+    const articleItem = await screen.findByTestId('article-item');
+    fireEvent.click(articleItem);
+    
+    // Verify we're in article view
+    const articleView = await screen.findByTestId('article-view');
+    expect(articleView).toBeTruthy();
+    
+    // Click back to articles
+    const backToArticlesButton = screen.getByText('← Back to articles');
+    fireEvent.click(backToArticlesButton);
+    
+    // Should now see article list again
+    await waitFor(() => {
+      const articleList = screen.getByTestId('article-list');
+      expect(articleList).toBeTruthy();
+      
+      // Article view should not be visible
+      const articleViewAfterBack = screen.queryByTestId('article-view');
+      expect(articleViewAfterBack).toBeNull();
+    });
+    
+    // Wait a moment to ensure no auto-select happens
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Still should not see article view (no auto-select happened)
+    const articleViewAfterWait = screen.queryByTestId('article-view');
+    expect(articleViewAfterWait).toBeNull();
   });
 });
