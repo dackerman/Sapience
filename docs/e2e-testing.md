@@ -8,7 +8,16 @@ End-to-end tests simulate real user interactions with the application to verify 
 
 ## Available Tests
 
-### 1. For You Page Navigation Test
+### 1. Basic Navigation Test (Recommended)
+
+This is a simplified test that verifies basic navigation flows:
+- Tests successful login
+- Verifies navigation between Home and For You pages
+- Doesn't attempt to interact with articles
+
+**Test file:** `scripts/test-basic-navigation.js`
+
+### 2. For You Page Navigation Test
 
 This test focuses specifically on the navigation within the "For You" page:
 - Verifies the recommendations list loads correctly
@@ -17,7 +26,7 @@ This test focuses specifically on the navigation within the "For You" page:
 
 **Test file:** `scripts/test-for-you-navigation.js`
 
-### 2. Cross-Page Navigation Test
+### 3. Cross-Page Navigation Test
 
 This test verifies navigation between different pages in the application:
 - Tests navigation from Home to For You page and back
@@ -28,30 +37,46 @@ This test verifies navigation between different pages in the application:
 
 ## Running the Tests
 
-To run all end-to-end tests, make sure the application is running on port 5000 (using `npm run dev`) and then execute:
+To run the tests, make sure the application is running on port 5000 (using `npm run dev`).
+
+### Running Basic Navigation Test
+
+This test is the most reliable and should run consistently:
 
 ```bash
-./run-e2e-tests.sh
+./run-e2e-tests.sh basic
 ```
 
-To run individual tests, you can use:
+### Running Other Tests
 
 ```bash
-node scripts/test-for-you-navigation.js
-# or
-node scripts/test-cross-page-navigation.js
+# For the For You page navigation test
+./run-e2e-tests.sh for-you
+
+# For the cross-page navigation test
+./run-e2e-tests.sh cross-page
 ```
+
+## Screenshots & Debugging
+
+The tests generate screenshots at various stages to help debug issues:
+- `before-login.png` - Shows the application before login
+- `after-login.png` - Shows the application after successful login
+- `for-you-page.png` - Shows the For You page
+- `error-screenshot.png` - Generated when a test fails
 
 ## Test Requirements
 
 1. The application must be running on `http://localhost:5000`.
-2. A test user account should be available with the credentials:
-   - Username: test@example.com
+2. The 'demo' user account must be available with the credentials:
+   - Username: demo
    - Password: password
 
 ## Interpreting Results
 
 Test results will be displayed in the console with detailed logs of each step in the test process. If a test fails, the error message will be displayed, and in some cases, a screenshot will be saved to help debug the issue.
+
+The "basic" test is the most reliable and should pass consistently. The more complex tests may sometimes time out if there are delays in loading or rendering components.
 
 ## Adding New Tests
 
@@ -67,3 +92,4 @@ When adding new end-to-end tests:
 - **Test times out waiting for an element**: This usually means the element isn't loading or has a different selector than expected. Check the page structure and adjust the selectors accordingly.
 - **Navigation issues**: If a test fails during page transitions, it might be due to timing issues. Consider increasing the timeout values.
 - **Login failures**: Ensure the test user credentials are correct and the login form hasn't changed.
+- **Screenshots missing**: Check if the test crashed before creating screenshots.
