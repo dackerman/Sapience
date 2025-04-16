@@ -1,5 +1,7 @@
 # Sapience: AI-Powered RSS Reader
 
+![Sapience Banner](assets/sapience-banner.png)
+
 ![Sapience Logo](generated-icon.png)
 
 ## About Sapience
