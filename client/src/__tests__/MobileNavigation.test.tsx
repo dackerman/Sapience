@@ -1,5 +1,9 @@
 /// <reference types="jest" />
 
+/**
+ * @jest-environment jsdom
+ */
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Home from '../pages/Home';
