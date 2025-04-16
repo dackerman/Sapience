@@ -481,19 +481,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const article = await storage.getArticleById(id);
       if (!article) return res.status(404).json({ message: "Article not found" });
       
-      // If we already have content, return it
-      if (article.content) {
+      // If we already have full HTML content, return it
+      if (article.content && article.content.includes("<html")) {
+        console.log(`Using stored HTML content for article ${id}`);
         return res.json({ content: article.content });
       }
       
       // Otherwise, fetch the content from the external URL
       try {
-        console.log(`Fetching content from ${article.link}`);
+        console.log(`Fetching full HTML content from ${article.link}`);
         const response = await axios.get(article.link, {
           timeout: 10000,
           headers: {
-            'User-Agent': 'RSS Reader/1.0'
-          }
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          responseType: 'text'
         });
         
         // Extract and return the HTML content
@@ -502,9 +504,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update the article in the database with the fetched content
         await storage.updateArticle(id, { content });
         
+        console.log(`Stored full HTML content for article ${id}`);
         res.json({ content });
       } catch (fetchError) {
         console.error(`Error fetching article content: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+        
+        // If we have partial content, return that instead
+        if (article.content) {
+          console.log(`Returning partial content for article ${id} after fetch error`);
+          return res.json({ content: article.content });
+        }
+        
         res.status(500).json({ 
           message: "Failed to fetch article content", 
           error: fetchError instanceof Error ? fetchError.message : String(fetchError)
@@ -549,10 +559,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   timeout: 8000,
                   headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                  }
+                  },
+                  responseType: 'text'
                 });
                 
-                // Extract content
+                // Extract content - full HTML
                 const content = response.data;
                 
                 // Update in database
