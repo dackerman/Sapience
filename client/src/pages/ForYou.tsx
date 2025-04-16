@@ -36,7 +36,9 @@ export default function ForYou() {
     }
   });
 
-  // Automatically select the first article when data loads
+  // Auto-selection behavior commenting out for now as it may cause freezing issues
+  // Let users explicitly choose an article instead of auto-selecting
+  /*
   useEffect(() => {
     if (
       recommendedArticles &&
@@ -46,6 +48,7 @@ export default function ForYou() {
       setSelectedArticle(recommendedArticles[0]);
     }
   }, [recommendedArticles, selectedArticle]);
+  */
 
   // Handle article selection with proper state management
   const handleArticleSelect = useCallback((article: ArticleWithSummary) => {
@@ -59,11 +62,9 @@ export default function ForYou() {
 
   // Safe way to clear selected article
   const clearSelectedArticle = useCallback(() => {
-    // Delay the state update slightly to avoid UI flickering
-    // This allows time for CSS transitions to complete
-    setTimeout(() => {
-      setSelectedArticle(null);
-    }, 10);
+    // Immediately clear the selected article
+    // The timeouts were causing issues with state management
+    setSelectedArticle(null);
   }, []);
 
   const toggleSidebar = useCallback(() => {
