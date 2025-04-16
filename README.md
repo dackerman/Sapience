@@ -2,8 +2,6 @@
 
 ![Sapience Banner](assets/sapience-banner.png)
 
-![Sapience Logo](generated-icon.png)
-
 ## About Sapience
 
 Sapience is a modern, intelligent RSS reader application that enhances your content consumption experience with AI-powered features. The name "Sapience" reflects the application's ability to bring wisdom and intelligence to your reading experience.
