@@ -44,12 +44,15 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     enabled: !!feedId
   });
 
-  // Auto-select the first article when feed changes or articles load
+  // Auto-select the first article when feed changes or articles load (desktop only)
+  const isMobile = window.innerWidth < 768; // Simple mobile detection
+  
   useEffect(() => {
-    if (articles.length > 0 && !selectedArticle) {
+    // Only auto-select on desktop view (selectedArticle will be null on mobile)
+    if (!isMobile && articles.length > 0 && !selectedArticle) {
       onSelectArticle(articles[0]);
     }
-  }, [articles, selectedArticle, onSelectArticle]);
+  }, [articles, selectedArticle, onSelectArticle, isMobile]);
 
   const handleRefresh = async () => {
     if (!feedId) return;
