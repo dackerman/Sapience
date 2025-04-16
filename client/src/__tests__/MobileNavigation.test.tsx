@@ -6,11 +6,12 @@
 
 import React from 'react';
 import '@testing-library/jest-dom'; // Import the jest-dom matchers
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Router } from 'wouter';
 import Home from '../pages/Home';
 import { useMobile } from '@/hooks/use-mobile';
+import type { Feed, Article } from '@shared/schema';
 
 // Create mock implementations
 jest.mock('@/hooks/use-mobile', () => ({
@@ -88,7 +89,7 @@ jest.mock('@/components/Header', () => {
 jest.mock('@/components/Sidebar', () => {
   return {
     __esModule: true,
-    default: ({ onSelectFeed }) => (
+    default: ({ onSelectFeed }: { onSelectFeed: (id: number) => void }) => (
       <div data-testid="sidebar">
         <div onClick={() => onSelectFeed(1)}>Hacker News</div>
         <div onClick={() => onSelectFeed(2)}>Tech Blog</div>
@@ -100,7 +101,7 @@ jest.mock('@/components/Sidebar', () => {
 jest.mock('@/components/ArticleList', () => {
   return {
     __esModule: true,
-    default: ({ onSelectArticle }) => (
+    default: ({ onSelectArticle }: { onSelectArticle: (article: Article) => void }) => (
       <div data-testid="article-list">
         <div onClick={() => onSelectArticle(mockArticles[0])}>Test Article 1</div>
         <div onClick={() => onSelectArticle(mockArticles[1])}>Test Article 2</div>
@@ -112,7 +113,7 @@ jest.mock('@/components/ArticleList', () => {
 jest.mock('@/components/ArticleView', () => {
   return {
     __esModule: true,
-    default: ({ article }) => (
+    default: ({ article }: { article: Article | null }) => (
       article && <div data-testid="article-view">
         <p>{article.content.replace(/<\/?p>/g, '')}</p>
       </div>
@@ -198,48 +199,58 @@ describe('Mobile Navigation Flow', () => {
     );
 
     // Step 1: Verify sidebar is shown with feed options
-    expect(screen.getByText('Hacker News')).toBeInTheDocument();
-    expect(screen.getByText('Tech Blog')).toBeInTheDocument();
+    const mobileView = screen.getByTestId('feed-view');
+    expect(mobileView).toBeInTheDocument();
+    const hackerNewsElement = within(mobileView).getByText('Hacker News');
+    expect(hackerNewsElement).toBeInTheDocument();
+    expect(within(mobileView).getByText('Tech Blog')).toBeInTheDocument();
     
     // Step 2: Select a feed to show the article list
-    fireEvent.click(screen.getByText('Hacker News'));
+    fireEvent.click(hackerNewsElement);
     
     // Wait for articles to load and verify article list is shown
+    const articleListView = await waitFor(() => screen.getByTestId('article-list-view'));
+    
     await waitFor(() => {
-      expect(screen.getByText('Test Article 1')).toBeInTheDocument();
-      expect(screen.getByText('Test Article 2')).toBeInTheDocument();
+      expect(within(articleListView).getByText('Test Article 1')).toBeInTheDocument();
+      expect(within(articleListView).getByText('Test Article 2')).toBeInTheDocument();
       // Back to feeds button should be visible
-      expect(screen.getByText('← Back to feeds')).toBeInTheDocument();
+      expect(within(articleListView).getByText('← Back to feeds')).toBeInTheDocument();
     });
     
     // Step 3: Select an article to view its details
-    fireEvent.click(screen.getByText('Test Article 1'));
+    fireEvent.click(within(articleListView).getByText('Test Article 1'));
     
     // Wait for article detail to load
+    const articleDetailView = await waitFor(() => screen.getByTestId('article-detail-view'));
+    
     await waitFor(() => {
       // Full article content should be visible
-      expect(screen.getByText('Content 1')).toBeInTheDocument();
+      expect(within(articleDetailView).getByText('Content 1')).toBeInTheDocument();
       // Back to articles button should be visible
-      expect(screen.getByText('← Back to articles')).toBeInTheDocument();
+      expect(within(articleDetailView).getByText('← Back to articles')).toBeInTheDocument();
     });
     
     // Step 4: Navigate back to article list
-    fireEvent.click(screen.getByText('← Back to articles'));
+    fireEvent.click(within(articleDetailView).getByText('← Back to articles'));
     
     // Verify we're back to article list
+    const articleListView2 = await waitFor(() => screen.getByTestId('article-list-view'));
+    
     await waitFor(() => {
-      expect(screen.getByText('Test Article 1')).toBeInTheDocument();
-      expect(screen.getByText('Test Article 2')).toBeInTheDocument();
-      expect(screen.getByText('← Back to feeds')).toBeInTheDocument();
+      expect(within(articleListView2).getByText('Test Article 1')).toBeInTheDocument();
+      expect(within(articleListView2).getByText('Test Article 2')).toBeInTheDocument();
+      expect(within(articleListView2).getByText('← Back to feeds')).toBeInTheDocument();
     });
     
     // Step 5: Navigate back to feeds
-    fireEvent.click(screen.getByText('← Back to feeds'));
+    fireEvent.click(within(articleListView2).getByText('← Back to feeds'));
     
     // Verify we're back to the sidebar
+    const feedView = await waitFor(() => screen.getByTestId('feed-view'));
     await waitFor(() => {
-      expect(screen.getByText('Hacker News')).toBeInTheDocument();
-      expect(screen.getByText('Tech Blog')).toBeInTheDocument();
+      expect(within(feedView).getByText('Hacker News')).toBeInTheDocument();
+      expect(within(feedView).getByText('Tech Blog')).toBeInTheDocument();
     });
   });
 });
