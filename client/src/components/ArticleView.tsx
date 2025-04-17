@@ -13,7 +13,7 @@ import IframeArticle from "./IframeArticle";
 // Component to handle regeneration of article summaries
 function RegenerateSummaryButton({ articleId }: { articleId: number }) {
   const { toast } = useToast();
-  
+
   const regenerateMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", `/api/articles/${articleId}/regenerate-summary`);
@@ -23,13 +23,13 @@ function RegenerateSummaryButton({ articleId }: { articleId: number }) {
         title: "Success",
         description: "Article summary regeneration started. This may take a few moments.",
       });
-      
+
       // Give the server some time to process before invalidating
-      setTimeout(() => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/articles/${articleId}/summary`] 
+      //setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/articles/${articleId}/summary`]
         });
-      }, 5000);
+      //}, 5000);
     },
     onError: () => {
       toast({
@@ -39,7 +39,7 @@ function RegenerateSummaryButton({ articleId }: { articleId: number }) {
       });
     }
   });
-  
+
   return (
     <Button
       variant="secondary"
@@ -80,7 +80,7 @@ export default function ArticleView({
     staleTime: Infinity,
     retry: 1,
   });
-  
+
   // Fetch article summary
   const {
     data: articleSummary,
@@ -271,10 +271,10 @@ export default function ArticleView({
                     {articleSummary ? (
                       <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
                         <h3 className="text-base md:text-lg font-medium mb-2">Summary</h3>
-                        
+
                         {/* Check if there's a valid, non-empty summary */}
-                        {articleSummary.summary && 
-                         articleSummary.summary.trim().length > 0 && 
+                        {articleSummary.summary &&
+                         articleSummary.summary.trim().length > 0 &&
                          !articleSummary.summary.toLowerCase().includes("error") ? (
                           <p className="text-sm md:text-base">{articleSummary.summary}</p>
                         ) : (
@@ -283,7 +283,7 @@ export default function ArticleView({
                             <RegenerateSummaryButton articleId={article.id} />
                           </div>
                         )}
-                        
+
                         {articleSummary.keywords && articleSummary.keywords.length > 0 && (
                           <div className="mt-3">
                             <h4 className="text-xs uppercase text-slate-500 font-medium">Keywords</h4>
@@ -296,10 +296,10 @@ export default function ArticleView({
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Always show the View Full Post button */}
                         <div className="mt-3">
-                          <Button 
+                          <Button
                             variant="outline"
                             onClick={() => setShowFullContent(true)}
                             className="flex items-center gap-1"
@@ -312,10 +312,11 @@ export default function ArticleView({
                     ) : (
                       <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
                         <p className="text-slate-500 italic">No summary available for this article.</p>
-                        
+                        <RegenerateSummaryButton articleId={article.id} />
+
                         {/* Always show the View Full Post button */}
                         <div className="mt-3">
-                          <Button 
+                          <Button
                             variant="outline"
                             onClick={() => setShowFullContent(true)}
                             className="flex items-center gap-1"
@@ -326,7 +327,7 @@ export default function ArticleView({
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Preview of article description */}
                     {article.description && (
                       <div className="line-clamp-3 text-slate-600 mb-4">
@@ -335,7 +336,7 @@ export default function ArticleView({
                     )}
                   </div>
                 )}
-                
+
                 {/* We don't need this button anymore as it's been moved into the summary box */}
               </>
             ) : (
@@ -364,10 +365,10 @@ export default function ArticleView({
                       }
                       title={article.title}
                     />
-                    
+
                     <div className="flex justify-between mt-4">
                       {/* Toggle button to show summary */}
-                      <Button 
+                      <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setShowFullContent(false)}
@@ -376,7 +377,7 @@ export default function ArticleView({
                         <FileText className="h-3 w-3" />
                         View Summary
                       </Button>
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
