@@ -7,6 +7,7 @@ import { validateFeedUrlSchema, articleOperationSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { setupAuth } from "./auth";
 import { processNewArticles } from "./services/backgroundJobs";
+import { generateArticleSummary } from "./services/openai";
 
 // Initialize RSS parser
 const parser = new Parser({
@@ -851,6 +852,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error regenerating article summaries:', error);
       res.status(500).json({ message: 'Failed to regenerate article summaries' });
+    }
+  });
+  
+  // Endpoint to regenerate a specific article's summary by ID
+  app.post("/api/articles/:id/regenerate-summary", async (req, res) => {
+    try {
+      const articleId = parseInt(req.params.id, 10);
+      
+      if (isNaN(articleId)) {
+        return res.status(400).json({ message: 'Invalid article ID' });
+      }
+      
+      console.log(`Manually regenerating summary for article ID: ${articleId}`);
+      
+      // First, get the article
+      const article = await storage.getArticleById(articleId);
+      
+      if (!article) {
+        return res.status(404).json({ message: 'Article not found' });
+      }
+      
+      // Prepare the content to summarize
+      const contentToSummarize = article.description || article.content || '';
+      
+      if (!contentToSummarize) {
+        return res.status(400).json({ message: 'No content available to summarize' });
+      }
+      
+      // Generate a new summary
+      const { summary, keywords } = await generateArticleSummary(
+        article.title,
+        contentToSummarize
+      );
+      
+      // Save the new summary
+      const articleSummary = {
+        articleId,
+        summary,
+        keywords
+      };
+      
+      const savedSummary = await storage.createArticleSummary(articleSummary);
+      
+      res.json({ 
+        message: 'Article summary regenerated successfully',
+        summary: savedSummary
+      });
+    } catch (error) {
+      console.error(`Error regenerating article summary:`, error);
+      res.status(500).json({ message: 'Failed to regenerate article summary' });
     }
   });
 

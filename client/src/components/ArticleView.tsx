@@ -10,6 +10,50 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import IframeArticle from "./IframeArticle";
 
+// Component to handle regeneration of article summaries
+function RegenerateSummaryButton({ articleId }: { articleId: number }) {
+  const { toast } = useToast();
+  
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/articles/${articleId}/regenerate-summary`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Article summary regeneration started. This may take a few moments.",
+      });
+      
+      // Give the server some time to process before invalidating
+      setTimeout(() => {
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/articles", articleId, "summary"] 
+        });
+      }, 5000);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate article summary",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => regenerateMutation.mutate()}
+      disabled={regenerateMutation.isPending}
+      className="flex items-center gap-1"
+    >
+      <RefreshCw className={`h-3 w-3 ${regenerateMutation.isPending ? 'animate-spin' : ''}`} />
+      {regenerateMutation.isPending ? 'Regenerating...' : 'Regenerate Summary'}
+    </Button>
+  );
+};
+
 interface ArticleViewProps {
   article: Article | null;
   feed: Feed | null;
@@ -232,7 +276,10 @@ export default function ArticleView({
                         {articleSummary.summary && !articleSummary.summary.includes("Error generating summary") ? (
                           <p className="text-sm md:text-base">{articleSummary.summary}</p>
                         ) : (
-                          <p className="text-slate-500 italic">Summary not available for this article.</p>
+                          <div>
+                            <p className="text-slate-500 italic mb-2">Summary not available for this article.</p>
+                            <RegenerateSummaryButton articleId={article.id} />
+                          </div>
                         )}
                         
                         {articleSummary.keywords && articleSummary.keywords.length > 0 && (
