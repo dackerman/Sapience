@@ -18,18 +18,25 @@ function RegenerateSummaryButton({ articleId }: { articleId: number }) {
     mutationFn: async () => {
       return apiRequest("POST", `/api/articles/${articleId}/regenerate-summary`);
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       toast({
         title: "Success",
-        description: "Article summary regeneration started. This may take a few moments.",
+        description: "Article summary has been regenerated.",
       });
       
-      // Give the server some time to process before invalidating
-      setTimeout(() => {
+      // Manually update the query cache with the new summary data
+      // that was returned from the server
+      if (response?.summary) {
+        queryClient.setQueryData(
+          ["/api/articles", articleId, "summary"],
+          response.summary
+        );
+      } else {
+        // If no summary data returned, invalidate the query to force a refetch
         queryClient.invalidateQueries({ 
           queryKey: ["/api/articles", articleId, "summary"] 
         });
-      }, 5000);
+      }
     },
     onError: () => {
       toast({

@@ -880,6 +880,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'No content available to summarize' });
       }
       
+      // Check if there's an existing summary
+      let existingSummary = await storage.getArticleSummary(articleId);
+      
       // Generate a new summary
       const { summary, keywords } = await generateArticleSummary(
         article.title,
@@ -894,6 +897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const savedSummary = await storage.createArticleSummary(articleSummary);
+      
+      // Log success
+      console.log(`Successfully regenerated summary for article ID: ${articleId}`);
       
       res.json({ 
         message: 'Article summary regenerated successfully',
