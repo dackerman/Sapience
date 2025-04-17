@@ -27,7 +27,7 @@ function RegenerateSummaryButton({ articleId }: { articleId: number }) {
       // Give the server some time to process before invalidating
       setTimeout(() => {
         queryClient.invalidateQueries({ 
-          queryKey: ["/api/articles", articleId, "summary"] 
+          queryKey: [`/api/articles/${articleId}/summary`] 
         });
       }, 5000);
     },
@@ -86,7 +86,7 @@ export default function ArticleView({
     data: articleSummary,
     isLoading: summaryLoading,
   } = useQuery<ArticleSummary>({
-    queryKey: article ? ["/api/articles", article.id, "summary"] : [""],
+    queryKey: article ? [`/api/articles/${article.id}/summary`] : [""],
     enabled: !!article && !showFullContent,
     staleTime: Infinity,
   });
@@ -272,8 +272,10 @@ export default function ArticleView({
                       <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
                         <h3 className="text-base md:text-lg font-medium mb-2">Summary</h3>
                         
-                        {/* Check if there's an error in the summary */}
-                        {articleSummary.summary && !articleSummary.summary.includes("Error generating summary") ? (
+                        {/* Check if there's a valid, non-empty summary */}
+                        {articleSummary.summary && 
+                         articleSummary.summary.trim().length > 0 && 
+                         !articleSummary.summary.toLowerCase().includes("error") ? (
                           <p className="text-sm md:text-base">{articleSummary.summary}</p>
                         ) : (
                           <div>

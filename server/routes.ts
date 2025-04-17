@@ -26,13 +26,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Setup authentication
   setupAuth(app);
-  
+
   // User profile routes
   app.get("/api/profile", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    
+
     try {
       const userProfile = await storage.getUserProfile(req.user.id);
       if (userProfile) {
@@ -50,21 +50,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user profile" });
     }
   });
-  
+
   app.put("/api/profile", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    
+
     try {
       const { interests } = req.body;
       if (interests === undefined) {
         return res.status(400).json({ message: "Interests are required" });
       }
-      
+
       // Check if profile exists
       let userProfile = await storage.getUserProfile(req.user.id);
-      
+
       if (userProfile) {
         // Update existing profile
         userProfile = await storage.updateUserProfile(req.user.id, { interests });
@@ -75,19 +75,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           interests
         });
       }
-      
+
       // Delete existing recommendations for this user so they'll be regenerated
       // with the new interests profile
       await storage.deleteUserRecommendations(req.user.id);
       console.log("Deleted all recommendations after profile update");
-      
+
       // Trigger the background job to regenerate recommendations immediately for this specific user
       console.log(`Triggering immediate article processing for user ${req.user.id} after profile update`);
       processNewArticles(req.user.id).catch(error => {
         console.error(`Error processing articles for user ${req.user.id} after profile update:`, error);
         // Don't fail the request if processing fails
       });
-      
+
       res.json(userProfile);
     } catch (error) {
       console.error("Error updating user profile:", error);
@@ -110,7 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name } = req.body;
       if (!name) return res.status(400).json({ message: "Category name is required" });
-      
+
       const category = await storage.createCategory({ name });
       res.status(201).json(category);
     } catch (error) {
@@ -122,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid category ID" });
-      
+
       const success = await storage.deleteCategory(id);
       if (success) {
         res.json({ message: "Category deleted successfully" });
@@ -138,7 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/feeds", async (req, res) => {
     try {
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
-      
+
       if (categoryId) {
         const feeds = await storage.getFeedsByCategory(categoryId);
         res.json(feeds);
@@ -155,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid feed ID" });
-      
+
       const feed = await storage.getFeedById(id);
       if (feed) {
         res.json(feed);
@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Validate input
       const feedData = validateFeedUrlSchema.parse(req.body);
-      
+
       // Fetch the RSS feed to validate it and extract metadata
       try {
         // Fetch the RSS feed content
@@ -225,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               guid: item.guid || item.id || item.link,
               imageUrl
             });
-            
+
             // For important articles, fetch the full HTML content immediately
             // This helps avoid needing to fetch content on first view
             try {
@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   },
                   responseType: 'text'
                 });
-                
+
                 // Store the full HTML content
                 if (contentResponse.data) {
                   await storage.updateArticle(newArticle.id, { content: contentResponse.data });
@@ -270,13 +270,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid feed ID" });
-      
+
       const { categoryId, autoRefresh } = req.body;
       const updateData: any = {};
-      
+
       if (categoryId !== undefined) updateData.categoryId = categoryId;
       if (autoRefresh !== undefined) updateData.autoRefresh = autoRefresh;
-      
+
       const updatedFeed = await storage.updateFeed(id, updateData);
       if (updatedFeed) {
         res.json(updatedFeed);
@@ -292,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid feed ID" });
-      
+
       const success = await storage.deleteFeed(id);
       if (success) {
         res.json({ message: "Feed deleted successfully" });
@@ -309,10 +309,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid feed ID" });
-      
+
       const feed = await storage.getFeedById(id);
       if (!feed) return res.status(404).json({ message: "Feed not found" });
-      
+
       try {
         // Fetch the RSS feed content
         const response = await axios.get(feed.url, {
@@ -330,36 +330,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const feedUpdates: any = {
           lastFetched: new Date()
         };
-        
+
         if (parsedFeed.title && parsedFeed.title !== feed.title) {
           feedUpdates.title = parsedFeed.title;
         }
-        
+
         if (parsedFeed.description && parsedFeed.description !== feed.description) {
           feedUpdates.description = parsedFeed.description;
         }
-        
+
         if (parsedFeed.image?.url && parsedFeed.image.url !== feed.favicon) {
           feedUpdates.favicon = parsedFeed.image.url;
         }
-        
+
         if (Object.keys(feedUpdates).length > 1) {
           await storage.updateFeed(id, feedUpdates);
         }
 
         // Add new articles from the feed
         const newArticles = [];
-        
+
         if (parsedFeed.items && parsedFeed.items.length > 0) {
           for (const item of parsedFeed.items) {
             if (!item.title || !item.link) continue;
-            
+
             const guid = item.guid || item.id || item.link;
-            
+
             // Check if article already exists
             const existingArticles = await storage.getArticlesByFeedId(id);
             const exists = existingArticles.some(article => article.guid === guid);
-            
+
             if (!exists) {
               let imageUrl = '';
               if (item.enclosure?.url) {
@@ -367,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } else if (item.media?.$.url) {
                 imageUrl = item.media.$.url;
               }
-              
+
               const newArticle = await storage.createArticle({
                 feedId: id,
                 title: item.title,
@@ -380,22 +380,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 guid,
                 imageUrl
               });
-              
+
               newArticles.push(newArticle);
-              
+
               // For recently added articles, pre-fetch the full HTML content
               // to avoid having to fetch it when the user first views the article
               try {
                 if (newArticle && (!newArticle.content || newArticle.content.length < 500)) {
                   console.log(`Pre-fetching full content for new article ${newArticle.id} during refresh`);
                   const contentResponse = await axios.get(item.link, {
-                    timeout: 5000, 
+                    timeout: 5000,
                     headers: {
                       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                     },
                     responseType: 'text'
                   });
-                  
+
                   // Store the full HTML content
                   if (contentResponse.data) {
                     await storage.updateArticle(newArticle.id, { content: contentResponse.data });
@@ -411,9 +411,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        res.json({ 
-          message: "Feed refreshed successfully", 
-          newArticlesCount: newArticles.length 
+        res.json({
+          message: "Feed refreshed successfully",
+          newArticlesCount: newArticles.length
         });
       } catch (error) {
         console.error("Error refreshing feed:", error);
@@ -433,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         failed: 0,
         newArticles: 0
       };
-      
+
       for (const feed of feeds) {
         try {
           // Fetch and parse the RSS feed
@@ -444,22 +444,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               'User-Agent': 'RSS Reader/1.0'
             }
           });
-          
+
           const parsedFeed = await parser.parseString(response.data);
-          
+
           // Update feed metadata
           await storage.updateFeed(feed.id, { lastFetched: new Date() });
-          
+
           // Add new articles
           if (parsedFeed.items && parsedFeed.items.length > 0) {
             const existingArticles = await storage.getArticlesByFeedId(feed.id);
-            
+
             for (const item of parsedFeed.items) {
               if (!item.title || !item.link) continue;
-              
+
               const guid = item.guid || item.id || item.link;
               const exists = existingArticles.some(article => article.guid === guid);
-              
+
               if (!exists) {
                 let imageUrl = '';
                 if (item.enclosure?.url) {
@@ -467,7 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 } else if (item.media?.$.url) {
                   imageUrl = item.media.$.url;
                 }
-                
+
                 const newArticle = await storage.createArticle({
                   feedId: feed.id,
                   title: item.title,
@@ -480,9 +480,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   guid,
                   imageUrl
                 });
-                
+
                 results.newArticles++;
-                
+
                 // Try to fetch full HTML content for new articles in the background
                 // We don't want to slow down the refresh all operation, so we don't await this
                 // and we catch any errors silently
@@ -498,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           },
                           responseType: 'text'
                         });
-                        
+
                         if (contentResponse.data) {
                           await storage.updateArticle(newArticle.id, { content: contentResponse.data });
                           console.log(`Stored full HTML content for article ${newArticle.id} in background`);
@@ -516,13 +516,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
-          
+
           results.success++;
         } catch (error) {
           results.failed++;
         }
       }
-      
+
       res.json({
         message: "All feeds refreshed",
         results
@@ -537,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const feedId = req.query.feedId ? parseInt(req.query.feedId as string) : undefined;
       const sortBy = req.query.sortBy as string || 'newest';
-      
+
       if (feedId) {
         const articles = await storage.getArticlesByFeedId(feedId, sortBy);
         res.json(articles);
@@ -554,7 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid article ID" });
-      
+
       const article = await storage.getArticleById(id);
       if (article) {
         // Mark as read when viewed
@@ -574,17 +574,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid article ID" });
-      
+
       const actionData = articleOperationSchema.parse({
         id,
         operation: req.body.operation
       });
-      
+
       const article = await storage.getArticleById(id);
       if (!article) return res.status(404).json({ message: "Article not found" });
-      
+
       let updateData = {};
-      
+
       switch (actionData.operation) {
         case 'read':
           updateData = { read: true };
@@ -601,7 +601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         default:
           return res.status(400).json({ message: "Invalid operation" });
       }
-      
+
       const updatedArticle = await storage.updateArticle(id, updateData);
       res.json(updatedArticle);
     } catch (error) {
@@ -620,19 +620,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-      
+
       // Get recommendations specific to the authenticated user
       const recommendedArticles = await storage.getRecommendedArticles(req.user.id);
       res.json(recommendedArticles);
     } catch (error) {
       console.error("Error fetching recommendations:", error);
-      res.status(500).json({ 
-        message: "Failed to fetch recommendations", 
+      res.status(500).json({
+        message: "Failed to fetch recommendations",
         error: error instanceof Error ? error.message : String(error)
       });
     }
   });
-  
+
   // Endpoint to mark recommendation as viewed
   app.post("/api/recommendations/:id/viewed", async (req, res) => {
     try {
@@ -640,33 +640,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-      
+
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid recommendation ID" });
       }
-      
+
       // Verify the recommendation belongs to the current user
       const recommendation = await storage.getRecommendationById(id);
       if (!recommendation) {
         return res.status(404).json({ message: "Recommendation not found" });
       }
-      
+
       // Make sure the recommendation belongs to the current user
       if (recommendation.userId !== req.user.id) {
         return res.status(403).json({ message: "You don't have permission to mark this recommendation as viewed" });
       }
-      
+
       const updated = await storage.markRecommendationAsViewed(id);
       if (!updated) {
         return res.status(404).json({ message: "Recommendation not found" });
       }
-      
+
       res.json(updated);
     } catch (error) {
       console.error("Error marking recommendation as viewed:", error);
-      res.status(500).json({ 
-        message: "Failed to mark recommendation as viewed", 
+      res.status(500).json({
+        message: "Failed to mark recommendation as viewed",
         error: error instanceof Error ? error.message : String(error)
       });
     }
@@ -677,16 +677,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid article ID" });
-      
+
       const article = await storage.getArticleById(id);
       if (!article) return res.status(404).json({ message: "Article not found" });
-      
+
       // If we already have full HTML content, return it
       if (article.content && article.content.includes("<html")) {
         console.log(`Using stored HTML content for article ${id}`);
         return res.json({ content: article.content });
       }
-      
+
       // Otherwise, fetch the content from the external URL
       try {
         console.log(`Fetching full HTML content from ${article.link}`);
@@ -697,26 +697,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           responseType: 'text'
         });
-        
+
         // Extract and return the HTML content
         const content = response.data;
-        
+
         // Update the article in the database with the fetched content
         await storage.updateArticle(id, { content });
-        
+
         console.log(`Stored full HTML content for article ${id}`);
         res.json({ content });
       } catch (fetchError) {
         console.error(`Error fetching article content: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
-        
+
         // If we have partial content, return that instead
         if (article.content) {
           console.log(`Returning partial content for article ${id} after fetch error`);
           return res.json({ content: article.content });
         }
-        
-        res.status(500).json({ 
-          message: "Failed to fetch article content", 
+
+        res.status(500).json({
+          message: "Failed to fetch article content",
           error: fetchError instanceof Error ? fetchError.message : String(fetchError)
         });
       }
@@ -725,19 +725,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Endpoint to fetch article summary for a single article
   app.get("/api/articles/:id/summary", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid article ID" });
-      
+
       const article = await storage.getArticleById(id);
       if (!article) return res.status(404).json({ message: "Article not found" });
-      
+
       // Fetch article summary from storage
       const summary = await storage.getArticleSummary(id);
-      
+
       if (summary) {
         console.log(`Found summary for article ${id}`);
         return res.json(summary);
@@ -750,23 +750,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Endpoint to fetch article contents for a feed
   app.get("/api/feeds/:id/contents", async (req, res) => {
     try {
       const feedId = parseInt(req.params.id);
       if (isNaN(feedId)) return res.status(400).json({ message: "Invalid feed ID" });
-      
+
       // Get articles for this feed
       const articles = await storage.getArticlesByFeedId(feedId);
       if (!articles.length) {
         return res.json({ articles: [] });
       }
-      
+
       // Process articles (fetch content for those without content)
       const processedArticles = [];
       const fetchPromises = [];
-      
+
       for (const article of articles) {
         // Check if article already has content
         if (article.content && article.content.length > 100) {
@@ -787,13 +787,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   },
                   responseType: 'text'
                 });
-                
+
                 // Extract content - full HTML
                 const content = response.data;
-                
+
                 // Update in database
                 await storage.updateArticle(article.id, { content });
-                
+
                 // Add to processed articles
                 processedArticles.push({
                   ...article,
@@ -813,12 +813,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         }
       }
-      
+
       // Wait for all fetch operations to complete (with a timeout)
       if (fetchPromises.length > 0) {
         await Promise.allSettled(fetchPromises);
       }
-      
+
       // Make sure we return a proper response
       res.json({ articles: processedArticles });
     } catch (error) {
@@ -826,7 +826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error", error: String(error) });
     }
   });
-  
+
   // Test endpoint to manually trigger article processing
   // Only for testing - should be removed in production
   app.post("/api/test/process-articles", async (req, res) => {
@@ -839,63 +839,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to process articles' });
     }
   });
-  
+
   // Endpoint to regenerate summaries for articles with error summaries
   app.post("/api/regenerate-summaries", async (req, res) => {
     try {
       console.log('Manually triggering regeneration of article summaries with errors...');
-      
+
       // Call processNewArticles with forceRegenerate=true
       await processNewArticles(undefined, true);
-      
+
       res.json({ message: 'Article summary regeneration initiated successfully' });
     } catch (error) {
       console.error('Error regenerating article summaries:', error);
       res.status(500).json({ message: 'Failed to regenerate article summaries' });
     }
   });
-  
+
   // Endpoint to regenerate a specific article's summary by ID
   app.post("/api/articles/:id/regenerate-summary", async (req, res) => {
     try {
       const articleId = parseInt(req.params.id, 10);
-      
+
       if (isNaN(articleId)) {
         return res.status(400).json({ message: 'Invalid article ID' });
       }
-      
+
       console.log(`Manually regenerating summary for article ID: ${articleId}`);
-      
+
       // First, get the article
       const article = await storage.getArticleById(articleId);
-      
+
       if (!article) {
         return res.status(404).json({ message: 'Article not found' });
       }
-      
+
       // Prepare the content to summarize
-      const contentToSummarize = article.description || article.content || '';
-      
+      const contentToSummarize = article.content || article.description || '';
+
       if (!contentToSummarize) {
         return res.status(400).json({ message: 'No content available to summarize' });
       }
-      
+
+      console.log('content to summarize', contentToSummarize);
+
       // Generate a new summary
       const { summary, keywords } = await generateArticleSummary(
         article.title,
         contentToSummarize
       );
-      
+
       // Save the new summary
       const articleSummary = {
         articleId,
         summary,
         keywords
       };
-      
+
+      console.log('article summary', articleSummary);
+
       const savedSummary = await storage.createArticleSummary(articleSummary);
-      
-      res.json({ 
+
+      console.log('saved summary', savedSummary);
+
+      res.json({
         message: 'Article summary regenerated successfully',
         summary: savedSummary
       });
