@@ -11,8 +11,9 @@ const MIN_RELEVANCE_SCORE = 50; // Minimum relevance score (out of 100) to recom
  * This runs on a periodic basis to process articles that haven't been summarized yet
  * 
  * @param specificUserId Optional: If provided, regenerates recommendations only for this user
+ * @param forceRegenerate Optional: If true, regenerates summaries for articles with error summaries
  */
-export async function processNewArticles(specificUserId?: number) {
+export async function processNewArticles(specificUserId?: number, forceRegenerate?: boolean) {
   console.log('Starting processing of new articles...');
   
   try {

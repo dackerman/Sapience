@@ -49,6 +49,7 @@ export interface IStorage {
   getArticleSummary(articleId: number): Promise<ArticleSummary | undefined>;
   getArticleSummaries(processedSince?: Date): Promise<ArticleSummary[]>;
   createArticleSummary(summary: InsertArticleSummary): Promise<ArticleSummary>;
+  getArticlesWithErrorSummaries(): Promise<Article[]>;
   
   // Recommendation methods
   getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]>;
