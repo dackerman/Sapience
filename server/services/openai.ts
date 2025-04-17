@@ -67,6 +67,8 @@ export async function generateArticleSummary(title: string, content: string): Pr
       "summary": "Your concise summary here",
       "keywords": ["keyword1", "keyword2", "keyword3", ...]
     }
+    
+    Ensure your response is a valid JSON object as described above.
     `;
 
     const response = await openai.chat.completions.create({
@@ -128,6 +130,8 @@ export async function analyzeArticleRelevance(
       "relevanceScore": number between 1-100,
       "reason": "Your explanation of why it's relevant to this user"
     }
+    
+    Ensure your response is a valid JSON object as described above.
     `;
 
     const response = await openai.chat.completions.create({
