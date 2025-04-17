@@ -1,4 +1,4 @@
-import { Clock, Bookmark, Share, ExternalLink, RefreshCw, Maximize2, FileText } from "lucide-react";
+import { Clock, Bookmark, Share, ExternalLink, RefreshCw, Maximize2, FileText, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -227,7 +227,13 @@ export default function ArticleView({
                     {articleSummary ? (
                       <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
                         <h3 className="text-base md:text-lg font-medium mb-2">Summary</h3>
-                        <p className="text-sm md:text-base">{articleSummary.summary}</p>
+                        
+                        {/* Check if there's an error in the summary */}
+                        {articleSummary.summary && !articleSummary.summary.includes("Error generating summary") ? (
+                          <p className="text-sm md:text-base">{articleSummary.summary}</p>
+                        ) : (
+                          <p className="text-slate-500 italic">Summary not available for this article.</p>
+                        )}
                         
                         {articleSummary.keywords && articleSummary.keywords.length > 0 && (
                           <div className="mt-3">
@@ -241,10 +247,34 @@ export default function ArticleView({
                             </div>
                           </div>
                         )}
+                        
+                        {/* Always show the View Full Post button */}
+                        <div className="mt-3">
+                          <Button 
+                            variant="outline"
+                            onClick={() => setShowFullContent(true)}
+                            className="flex items-center gap-1"
+                          >
+                            <BookOpen className="h-4 w-4" />
+                            View Full Post
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
                         <p className="text-slate-500 italic">No summary available for this article.</p>
+                        
+                        {/* Always show the View Full Post button */}
+                        <div className="mt-3">
+                          <Button 
+                            variant="outline"
+                            onClick={() => setShowFullContent(true)}
+                            className="flex items-center gap-1"
+                          >
+                            <BookOpen className="h-4 w-4" />
+                            View Full Post
+                          </Button>
+                        </div>
                       </div>
                     )}
                     
@@ -257,14 +287,7 @@ export default function ArticleView({
                   </div>
                 )}
                 
-                {/* Toggle button to show full content */}
-                <Button 
-                  className="w-full mt-4 flex items-center justify-center gap-2"
-                  onClick={() => setShowFullContent(true)}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                  View Full Post
-                </Button>
+                {/* We don't need this button anymore as it's been moved into the summary box */}
               </>
             ) : (
               // FULL CONTENT VIEW
