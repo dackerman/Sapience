@@ -1,12 +1,13 @@
-import { Clock, Bookmark, Share, ExternalLink, RefreshCw } from "lucide-react";
+import { Clock, Bookmark, Share, ExternalLink, RefreshCw, Maximize2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Article, Feed } from "@/lib/types";
+import { Article, Feed, ArticleSummary, ArticleWithSummary } from "@/lib/types";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 import IframeArticle from "./IframeArticle";
 
 interface ArticleViewProps {
@@ -21,6 +22,8 @@ export default function ArticleView({
   isLoading,
 }: ArticleViewProps) {
   const { toast } = useToast();
+  // State to toggle between summary and full content
+  const [showFullContent, setShowFullContent] = useState(false);
 
   // Fetch external content if we don't have article content
   const {
@@ -29,9 +32,19 @@ export default function ArticleView({
     refetch: refetchExternalContent,
   } = useQuery<{ content: string }>({
     queryKey: article ? ["/api/articles", article.id, "content"] : [""],
-    enabled: !!article && (!article.content || article.content.length < 100),
+    enabled: !!article && showFullContent && (!article.content || article.content.length < 100),
     staleTime: Infinity,
     retry: 1,
+  });
+  
+  // Fetch article summary
+  const {
+    data: articleSummary,
+    isLoading: summaryLoading,
+  } = useQuery<ArticleSummary>({
+    queryKey: article ? ["/api/articles", article.id, "summary"] : [""],
+    enabled: !!article && !showFullContent,
+    staleTime: Infinity,
   });
 
   // Mutation for toggling favorite status
@@ -199,42 +212,112 @@ export default function ArticleView({
               />
             )}
 
-            {externalContentLoading ? (
-              <div className="space-y-4 py-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <div className="flex justify-center mt-4">
-                  <p className="text-sm text-gray-500">
-                    Fetching original article content...
-                  </p>
-                </div>
-              </div>
-            ) : (
+            {!showFullContent ? (
+              // SUMMARY VIEW
               <>
-                {/* Use IframeArticle to isolate external CSS */}
-                <IframeArticle
-                  content={
-                    externalContent?.content ||
-                    article.content ||
-                    article.description ||
-                    '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'
-                  }
-                  title={article.title}
-                />
-
-                <div className="flex justify-end mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => refetchExternalContent()}
-                    className="flex items-center gap-1"
-                    disabled={externalContentLoading}
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Refresh content
-                  </Button>
-                </div>
+                {summaryLoading ? (
+                  <div className="space-y-4 py-4">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ) : (
+                  <div className="prose prose-sm md:prose max-w-none">
+                    {/* Display article summary if available */}
+                    {articleSummary ? (
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
+                        <h3 className="text-base md:text-lg font-medium mb-2">Summary</h3>
+                        <p className="text-sm md:text-base">{articleSummary.summary}</p>
+                        
+                        {articleSummary.keywords && articleSummary.keywords.length > 0 && (
+                          <div className="mt-3">
+                            <h4 className="text-xs uppercase text-slate-500 font-medium">Keywords</h4>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {articleSummary.keywords.map((keyword, index) => (
+                                <span key={index} className="inline-block bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs">
+                                  {keyword}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
+                        <p className="text-slate-500 italic">No summary available for this article.</p>
+                      </div>
+                    )}
+                    
+                    {/* Preview of article description */}
+                    {article.description && (
+                      <div className="line-clamp-3 text-slate-600 mb-4">
+                        <p>{article.description}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Toggle button to show full content */}
+                <Button 
+                  className="w-full mt-4 flex items-center justify-center gap-2"
+                  onClick={() => setShowFullContent(true)}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                  View Full Post
+                </Button>
+              </>
+            ) : (
+              // FULL CONTENT VIEW
+              <>
+                {externalContentLoading ? (
+                  <div className="space-y-4 py-4">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <div className="flex justify-center mt-4">
+                      <p className="text-sm text-gray-500">
+                        Fetching original article content...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Use IframeArticle to isolate external CSS */}
+                    <IframeArticle
+                      content={
+                        externalContent?.content ||
+                        article.content ||
+                        article.description ||
+                        '<p>No content available. Click "Read original article" below to view the content on the original website.</p>'
+                      }
+                      title={article.title}
+                    />
+                    
+                    <div className="flex justify-between mt-4">
+                      {/* Toggle button to show summary */}
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFullContent(false)}
+                        className="flex items-center gap-1"
+                      >
+                        <FileText className="h-3 w-3" />
+                        View Summary
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => refetchExternalContent()}
+                        className="flex items-center gap-1"
+                        disabled={externalContentLoading}
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Refresh content
+                      </Button>
+                    </div>
+                  </>
+                )}
 
                 <div className="mt-6 md:mt-8 border-t border-gray-200 pt-4">
                   <a
