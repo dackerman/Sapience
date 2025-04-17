@@ -725,6 +725,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Endpoint to fetch article summary for a single article
+  app.get("/api/articles/:id/summary", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid article ID" });
+      
+      const article = await storage.getArticleById(id);
+      if (!article) return res.status(404).json({ message: "Article not found" });
+      
+      // Fetch article summary from storage
+      const summary = await storage.getArticleSummary(id);
+      
+      if (summary) {
+        console.log(`Found summary for article ${id}`);
+        return res.json(summary);
+      } else {
+        console.log(`No summary available for article ${id}`);
+        return res.status(404).json({ message: "No summary available for this article" });
+      }
+    } catch (error) {
+      console.error("Error in summary fetch endpoint:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
   // Endpoint to fetch article contents for a feed
   app.get("/api/feeds/:id/contents", async (req, res) => {
     try {
