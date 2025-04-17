@@ -838,6 +838,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to process articles' });
     }
   });
+  
+  // Endpoint to regenerate summaries for articles with error summaries
+  app.post("/api/regenerate-summaries", async (req, res) => {
+    try {
+      console.log('Manually triggering regeneration of article summaries with errors...');
+      
+      // Call processNewArticles with forceRegenerate=true
+      await processNewArticles(undefined, true);
+      
+      res.json({ message: 'Article summary regeneration initiated successfully' });
+    } catch (error) {
+      console.error('Error regenerating article summaries:', error);
+      res.status(500).json({ message: 'Failed to regenerate article summaries' });
+    }
+  });
 
   return httpServer;
 }

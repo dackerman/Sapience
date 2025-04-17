@@ -17,6 +17,48 @@ export async function processNewArticles(specificUserId?: number, forceRegenerat
   console.log('Starting processing of new articles...');
   
   try {
+    // If forceRegenerate is true, process articles with error summaries
+    if (forceRegenerate) {
+      console.log('Force regenerate flag is set - looking for articles with error summaries');
+      const articlesWithErrorSummaries = await storage.getArticlesWithErrorSummaries();
+      console.log(`Found ${articlesWithErrorSummaries.length} articles with error summaries to regenerate`);
+      
+      if (articlesWithErrorSummaries.length > 0) {
+        for (const article of articlesWithErrorSummaries) {
+          try {
+            console.log(`Regenerating summary for article ${article.id}: ${article.title}`);
+            
+            // Prepare the content to summarize (preferring description over full content as it's more concise)
+            const contentToSummarize = article.description || article.content || '';
+            
+            if (!contentToSummarize) {
+              console.log(`Skipping article ${article.id} - no content to summarize`);
+              continue;
+            }
+            
+            // Generate a new summary
+            const { summary, keywords } = await generateArticleSummary(
+              article.title,
+              contentToSummarize
+            );
+            
+            // Save summary to database (this will update the existing summary)
+            const articleSummary: InsertArticleSummary = {
+              articleId: article.id,
+              summary,
+              keywords
+            };
+            
+            const savedSummary = await storage.createArticleSummary(articleSummary);
+            console.log(`Regenerated summary for article ${article.id}`);
+          } catch (error) {
+            console.error(`Error regenerating summary for article ${article.id}:`, error);
+          }
+        }
+        
+        console.log('Completed regenerating article summaries');
+      }
+    }
     // Step 1: Determine which user(s) to process
     // If a specific user ID is provided, use that user
     // Otherwise fall back to the default user for general processing

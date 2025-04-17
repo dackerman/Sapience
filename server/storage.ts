@@ -332,6 +332,10 @@ export class MemStorage implements IStorage {
     throw new Error("Not implemented in MemStorage");
   }
   
+  async getArticlesWithErrorSummaries(): Promise<Article[]> {
+    return []; // Not implemented in MemStorage
+  }
+  
   async getRecommendations(userId: number, viewed?: boolean): Promise<Recommendation[]> {
     return [];
   }
@@ -796,6 +800,44 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return newSummary;
+  }
+  
+  async getArticlesWithErrorSummaries(): Promise<Article[]> {
+    // Get all article summaries that contain "Error generating summary"
+    const errorSummaries = await db
+      .select()
+      .from(articleSummaries)
+      .where(sql`${articleSummaries.summary} LIKE '%Error generating summary%'`);
+    
+    // Get the article IDs from those summaries
+    const articleIds = errorSummaries.map(summary => summary.articleId);
+    
+    if (articleIds.length === 0) {
+      return [];
+    }
+    
+    // Fetch the actual articles - process in batches to avoid SQL errors
+    const articlesWithErrors: Article[] = [];
+    
+    // Process in batches of 10 to avoid very long IN clauses
+    for (let i = 0; i < articleIds.length; i += 10) {
+      const batchIds = articleIds.slice(i, i + 10);
+      
+      // Use a for loop to query articles individually
+      for (const id of batchIds) {
+        const [article] = await db
+          .select()
+          .from(articles)
+          .where(eq(articles.id, id));
+          
+        if (article) {
+          articlesWithErrors.push(article);
+        }
+      }
+    }
+    
+    console.log(`Found ${articlesWithErrors.length} articles with error summaries`);
+    return articlesWithErrors;
   }
 
   // Recommendation methods
