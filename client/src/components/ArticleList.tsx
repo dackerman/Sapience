@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import {
@@ -54,7 +54,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
   useEffect(() => {
     // Only auto-select on desktop view
     // On mobile view, we want to show the article list without auto-selecting
-    if (!isMobile && articles.length > 0 && !selectedArticle) {
+    if (!isMobile && articles && articles.length > 0 && !selectedArticle) {
       onSelectArticle(articles[0]);
     }
   }, [articles, selectedArticle, onSelectArticle, isMobile]);

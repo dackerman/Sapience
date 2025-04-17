@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ForYou from "../pages/ForYou";
+import { AuthProvider } from "@/hooks/use-auth";
 
 // Mock the hooks and components
 jest.mock("@/hooks/use-toast", () => ({
@@ -9,6 +10,23 @@ jest.mock("@/hooks/use-toast", () => ({
     toast: jest.fn(),
   }),
 }));
+
+// Mock use-auth
+jest.mock("@/hooks/use-auth", () => {
+  const originalModule = jest.requireActual("@/hooks/use-auth");
+  return {
+    ...originalModule,
+    useAuth: () => ({
+      user: { id: 1, username: 'testuser' },
+      isLoading: false,
+      error: null,
+      loginMutation: { mutate: jest.fn() },
+      logoutMutation: { mutate: jest.fn() },
+      registerMutation: { mutate: jest.fn() }
+    }),
+    AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+  };
+});
 
 jest.mock("@/components/Header", () => {
   return function MockHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
@@ -120,7 +138,9 @@ jest.mock('@tanstack/react-query', () => {
   return {
     ...original,
     useQuery: jest.fn().mockImplementation(({ queryKey }) => {
-      if (queryKey[0] === '/api/recommendations') {
+      const queryKeyStr = typeof queryKey[0] === 'string' ? queryKey[0] : '';
+      
+      if (queryKeyStr.includes('/api/recommendations')) {
         return {
           data: mockRecommendationsData,
           isLoading: false,
@@ -175,7 +195,9 @@ describe('ForYou Page', () => {
   test('renders the recommendations list', async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <ForYou />
+        <AuthProvider>
+          <ForYou />
+        </AuthProvider>
       </QueryClientProvider>
     );
 
@@ -189,7 +211,9 @@ describe('ForYou Page', () => {
   test('clicking on an article selects it and shows the article view on mobile', async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <ForYou />
+        <AuthProvider>
+          <ForYou />
+        </AuthProvider>
       </QueryClientProvider>
     );
 
@@ -209,7 +233,9 @@ describe('ForYou Page', () => {
   test('clicking back button from article view returns to recommendations list', async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <ForYou />
+        <AuthProvider>
+          <ForYou />
+        </AuthProvider>
       </QueryClientProvider>
     );
 
@@ -236,7 +262,9 @@ describe('ForYou Page', () => {
   test('selecting different articles updates the article view', async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <ForYou />
+        <AuthProvider>
+          <ForYou />
+        </AuthProvider>
       </QueryClientProvider>
     );
 
