@@ -52,9 +52,9 @@ async function testArticlePreferences() {
   console.log('Starting article preferences tests...');
   
   try {
-    // Step 1: Create test users and login
+    // Step 1: Login with our test user
     console.log('Logging in as test user...');
-    const authResponse = await login('defaultuser', 'password123');
+    const authResponse = await login('testuser', 'password123');
     const authCookie = authResponse.sessionCookie;
     
     // Step 2: Get available articles to test with
