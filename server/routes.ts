@@ -966,6 +966,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to process articles' });
     }
   });
+  
+  // Test endpoint for regenerating recommendations for a specific user
+  // Only for testing - should be removed in production
+  app.post("/api/test/regenerate-recommendations/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      console.log(`Manually triggering recommendation regeneration for user ${userId}...`);
+      
+      // Force regeneration by passing the specific user ID
+      await processNewArticles(userId);
+      
+      res.json({ message: `Recommendations regeneration triggered for user ${userId}` });
+    } catch (error) {
+      console.error("Error regenerating recommendations:", error);
+      res.status(500).json({ message: "Error regenerating recommendations" });
+    }
+  });
 
   // Endpoint to regenerate summaries for articles with error summaries
   app.post("/api/regenerate-summaries", async (req, res) => {
