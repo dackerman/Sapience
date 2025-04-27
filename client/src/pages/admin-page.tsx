@@ -15,7 +15,9 @@ import {
   BarChart3,
   FileText,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Users,
+  Star
 } from "lucide-react";
 import { 
   Card, 
@@ -130,6 +132,30 @@ export default function AdminPage() {
   } = useQuery<PipelineStats>({
     queryKey: ["/api/admin/stats"],
     enabled: !!user,
+  });
+  
+  // User recommendations type
+  type UserRecommendation = {
+    userId: number;
+    username: string;
+    recommendations: {
+      id: number;
+      articleId: number;
+      title: string;
+      relevanceScore: number;
+      viewed: boolean;
+      createdAt: string;
+    }[];
+  };
+  
+  // Fetch user recommendations data
+  const {
+    data: userRecommendations,
+    isLoading: recommendationsLoading,
+    refetch: refetchRecommendations
+  } = useQuery<UserRecommendation[]>({
+    queryKey: ["/api/admin/user-recommendations"],
+    enabled: !!user && tabValue === "recommendations",
   });
 
   // Handle triggering article processing
@@ -350,6 +376,10 @@ export default function AdminPage() {
               <BadgeCheck className="h-4 w-4 mr-1" />
               Popular Articles
             </TabsTrigger>
+            <TabsTrigger value="recommendations">
+              <Users className="h-4 w-4 mr-1" />
+              User Recommendations
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
@@ -556,6 +586,94 @@ export default function AdminPage() {
                           </div>
                         </div>
                       ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="recommendations" className="mt-0">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Recommendations</CardTitle>
+                <CardDescription>
+                  View personalized article recommendations per user
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recommendationsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="mb-4">
+                        <Skeleton className="h-10 w-full max-w-md mb-2" />
+                        <div className="pl-6 space-y-2">
+                          {[1, 2, 3].map((j) => (
+                            <Skeleton key={j} className="h-8 w-full" />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : !userRecommendations || userRecommendations.length === 0 ? (
+                  <div className="py-6 text-center text-muted-foreground">
+                    No user recommendations found
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {userRecommendations.map((userRec) => (
+                      <div key={userRec.userId} className="mb-8">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="px-3 py-1 bg-primary text-white">
+                            <Users className="h-3 w-3 mr-2" />
+                            {userRec.username}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {userRec.recommendations.length} recommended articles
+                          </span>
+                        </div>
+                        
+                        {userRec.recommendations.length === 0 ? (
+                          <div className="pl-6 py-2 text-sm text-muted-foreground">
+                            No recommendations for this user yet
+                          </div>
+                        ) : (
+                          <div className="pl-6 space-y-3">
+                            {userRec.recommendations.map((rec) => (
+                              <div 
+                                key={rec.id} 
+                                className="border rounded-md p-3 hover:bg-muted/50 transition-colors"
+                              >
+                                <div className="flex justify-between">
+                                  <div className="font-medium">{rec.title}</div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className={rec.viewed ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"}>
+                                      {rec.viewed ? (
+                                        <>
+                                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                                          Viewed
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Clock className="h-3 w-3 mr-1" />
+                                          Not viewed
+                                        </>
+                                      )}
+                                    </Badge>
+                                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                                      <Star className="h-3 w-3 mr-1" />
+                                      Score: {rec.relevanceScore.toFixed(2)}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Recommended {formatDistanceToNow(new Date(rec.createdAt), { addSuffix: true })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

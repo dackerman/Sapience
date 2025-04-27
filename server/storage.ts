@@ -11,12 +11,29 @@ import {
   users, type User, type InsertUser
 } from "@shared/schema";
 
+// Type for user recommendations in admin view
+export type UserRecommendationData = {
+  userId: number;
+  username: string;
+  recommendations: {
+    id: number;
+    articleId: number;
+    title: string;
+    relevanceScore: number;
+    viewed: boolean;
+    createdAt: string;
+  }[];
+};
+
 export interface IStorage {
   // User methods
   getUsers(): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Admin methods
+  getUserRecommendationsData(): Promise<UserRecommendationData[]>;
 
   // Category methods
   getCategories(): Promise<CategoryWithFeedCount[]>;
