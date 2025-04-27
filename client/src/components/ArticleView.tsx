@@ -128,35 +128,41 @@ export default function ArticleView({
     },
   });
 
-  // Mutation for voting on articles
+  // Mutation for voting on articles (preference system)
   const voteMutation = useMutation({
     mutationFn: async ({ 
       articleId, 
-      operation, 
+      preference, 
       explanation 
     }: { 
       articleId: number, 
-      operation: 'upvote' | 'downvote', 
+      preference: 'upvote' | 'downvote', 
       explanation: string 
     }) => {
-      return apiRequest("POST", `/api/articles/${articleId}/action`, {
-        operation,
+      return apiRequest("POST", `/api/articles/${articleId}/preference`, {
+        preference,
         explanation
       });
     },
     onSuccess: (data) => {
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: [`/api/articles`] });
       queryClient.invalidateQueries({ queryKey: [`/api/recommendations`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/article-preferences`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/articles/${article?.id}/preference`] });
+      
       toast({
         title: "Success",
-        description: `Your ${voteType} has been recorded. Thank you for the feedback!`,
+        description: `Your feedback has been recorded. Thank you for helping improve our recommendations!`,
       });
+      
       // Reset the dialog state
       setVoteDialogOpen(false);
       setExplanation("");
       setVoteType(null);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Error submitting vote:", error);
       toast({
         title: "Error",
         description: "Failed to submit your feedback. Please try again.",
@@ -185,7 +191,7 @@ export default function ArticleView({
     
     voteMutation.mutate({
       articleId: article.id,
-      operation: voteType,
+      preference: voteType,
       explanation
     });
   };
