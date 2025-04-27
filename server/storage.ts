@@ -394,7 +394,10 @@ export class MemStorage implements IStorage {
     const id = this.articlePreferenceId++;
     const now = new Date();
     const newPreference: ArticlePreference = {
-      ...preference,
+      userId: preference.userId,
+      articleId: preference.articleId,
+      preference: preference.preference,
+      explanation: preference.explanation ?? null,
       id,
       createdAt: now,
     };
