@@ -154,7 +154,8 @@ export const validateFeedUrlSchema = z.object({
 // Schema for article operations
 export const articleOperationSchema = z.object({
   id: z.number(),
-  operation: z.enum(["read", "unread", "favorite", "unfavorite"]),
+  operation: z.enum(["read", "unread", "favorite", "unfavorite", "upvote", "downvote"]),
+  explanation: z.string().optional(),
 });
 
 // User registration validation schema
@@ -177,8 +178,29 @@ export const userProfileSchema = z.object({
 
 export type FeedWithArticleCount = Feed & { articleCount: number, unreadCount: number };
 export type CategoryWithFeedCount = Category & { feedCount: number };
+// Article Preferences schema for upvotes/downvotes
+export const articlePreferences = pgTable("article_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  articleId: integer("article_id").notNull().references(() => articles.id),
+  preference: text("preference").notNull(), // 'upvote' or 'downvote'
+  explanation: text("explanation"), // User's explanation for their preference
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertArticlePreferenceSchema = createInsertSchema(articlePreferences).pick({
+  userId: true,
+  articleId: true,
+  preference: true,
+  explanation: true,
+});
+
+export type InsertArticlePreference = z.infer<typeof insertArticlePreferenceSchema>;
+export type ArticlePreference = typeof articlePreferences.$inferSelect;
+
 export type ArticleWithSummary = Article & { 
   summary?: ArticleSummary, 
   recommendation?: Recommendation,
-  hasFullContent?: boolean
+  hasFullContent?: boolean,
+  preference?: ArticlePreference
 };

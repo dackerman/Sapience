@@ -60,6 +60,12 @@ export interface IStorage {
   deleteAllRecommendations(): Promise<boolean>;
   deleteUserRecommendations(userId: number): Promise<boolean>;
   
+  // Article Preference methods
+  getArticlePreference(userId: number, articleId: number): Promise<ArticlePreference | undefined>;
+  createArticlePreference(preference: InsertArticlePreference): Promise<ArticlePreference>;
+  updateArticlePreference(id: number, preference: Partial<ArticlePreference>): Promise<ArticlePreference | undefined>;
+  getUserArticlePreferences(userId: number): Promise<ArticlePreference[]>;
+
   // Combined query for "For You" page
   getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]>;
   getUnprocessedArticles(limit?: number): Promise<Article[]>;
