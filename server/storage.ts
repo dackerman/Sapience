@@ -6,6 +6,7 @@ import {
   userProfiles, type UserProfile, type InsertUserProfile,
   articleSummaries, type ArticleSummary, type InsertArticleSummary,
   recommendations, type Recommendation, type InsertRecommendation,
+  articlePreferences, type ArticlePreference, type InsertArticlePreference,
   type ArticleWithSummary,
   users, type User, type InsertUser
 } from "@shared/schema";
@@ -76,22 +77,26 @@ export class MemStorage implements IStorage {
   private categories: Map<number, Category>;
   private feeds: Map<number, Feed>;
   private articles: Map<number, Article>;
+  private articlePreferences: Map<number, ArticlePreference>;
   
   private userId: number;
   private categoryId: number;
   private feedId: number;
   private articleId: number;
+  private articlePreferenceId: number;
 
   constructor() {
     this.users = new Map();
     this.categories = new Map();
     this.feeds = new Map();
     this.articles = new Map();
+    this.articlePreferences = new Map();
     
     this.userId = 1;
     this.categoryId = 1;
     this.feedId = 1;
     this.articleId = 1;
+    this.articlePreferenceId = 1;
 
     // Initialize with default categories
     const defaultCategories: InsertCategory[] = [
@@ -376,6 +381,40 @@ export class MemStorage implements IStorage {
   
   async getUnprocessedArticles(limit?: number): Promise<Article[]> {
     return [];
+  }
+
+  // Article Preference methods
+  async getArticlePreference(userId: number, articleId: number): Promise<ArticlePreference | undefined> {
+    return Array.from(this.articlePreferences.values()).find(
+      pref => pref.userId === userId && pref.articleId === articleId
+    );
+  }
+
+  async createArticlePreference(preference: InsertArticlePreference): Promise<ArticlePreference> {
+    const id = this.articlePreferenceId++;
+    const now = new Date();
+    const newPreference: ArticlePreference = {
+      ...preference,
+      id,
+      createdAt: now,
+    };
+    this.articlePreferences.set(id, newPreference);
+    return newPreference;
+  }
+
+  async updateArticlePreference(id: number, preference: Partial<ArticlePreference>): Promise<ArticlePreference | undefined> {
+    const existingPreference = this.articlePreferences.get(id);
+    if (!existingPreference) return undefined;
+    
+    const updatedPreference: ArticlePreference = { ...existingPreference, ...preference };
+    this.articlePreferences.set(id, updatedPreference);
+    return updatedPreference;
+  }
+
+  async getUserArticlePreferences(userId: number): Promise<ArticlePreference[]> {
+    return Array.from(this.articlePreferences.values()).filter(
+      pref => pref.userId === userId
+    );
   }
 }
 
@@ -1020,6 +1059,62 @@ export class DatabaseStorage implements IStorage {
     }
     
     return query;
+  }
+
+  // Article Preference methods
+  async getArticlePreference(userId: number, articleId: number): Promise<ArticlePreference | undefined> {
+    const [preference] = await db
+      .select()
+      .from(articlePreferences)
+      .where(and(
+        eq(articlePreferences.userId, userId),
+        eq(articlePreferences.articleId, articleId)
+      ));
+    
+    return preference;
+  }
+
+  async createArticlePreference(preference: InsertArticlePreference): Promise<ArticlePreference> {
+    // Check if preference already exists
+    const existingPreference = await this.getArticlePreference(preference.userId, preference.articleId);
+    
+    if (existingPreference) {
+      // Update instead of creating a new one
+      return this.updateArticlePreference(existingPreference.id, {
+        preference: preference.preference,
+        explanation: preference.explanation
+      }) as Promise<ArticlePreference>;
+    }
+
+    const [newPreference] = await db
+      .insert(articlePreferences)
+      .values({
+        userId: preference.userId,
+        articleId: preference.articleId,
+        preference: preference.preference,
+        explanation: preference.explanation ?? null,
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return newPreference;
+  }
+
+  async updateArticlePreference(id: number, preference: Partial<ArticlePreference>): Promise<ArticlePreference | undefined> {
+    const [updatedPreference] = await db
+      .update(articlePreferences)
+      .set(preference)
+      .where(eq(articlePreferences.id, id))
+      .returning();
+    
+    return updatedPreference;
+  }
+
+  async getUserArticlePreferences(userId: number): Promise<ArticlePreference[]> {
+    return await db
+      .select()
+      .from(articlePreferences)
+      .where(eq(articlePreferences.userId, userId));
   }
 }
 
