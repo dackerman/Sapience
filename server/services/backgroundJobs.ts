@@ -1,6 +1,17 @@
 import { storage } from '../storage';
-import { generateArticleSummary, analyzeArticleRelevance } from './openai';
-import { Article, ArticleSummary, InsertArticleSummary, InsertRecommendation } from '@shared/schema';
+import { 
+  generateArticleSummary, 
+  analyzeArticleRelevance, 
+  rescoreArticleWithUserFeedback,
+  updateUserInterestsFromPreferences
+} from './openai';
+import { 
+  Article, 
+  ArticleSummary, 
+  InsertArticleSummary, 
+  InsertRecommendation,
+  ArticlePreference
+} from '@shared/schema';
 import Parser from 'rss-parser';
 import axios from 'axios';
 
@@ -15,6 +26,215 @@ const MIN_RELEVANCE_SCORE = 50; // Minimum relevance score (out of 100) to recom
  * @param specificUserId Optional: If provided, regenerates recommendations only for this user
  * @param forceRegenerate Optional: If true, regenerates summaries for articles with error summaries
  */
+/**
+ * Process a new article vote and rescore recommendations
+ * This function is called when a user votes on an article
+ * It rescores the article for this user and updates recommendations
+ * 
+ * @param userId The user who voted
+ * @param articleId The article that was voted on
+ * @param preference The preference (upvote/downvote) and explanation
+ */
+export async function processArticleVote(
+  userId: number, 
+  articleId: number, 
+  preference: ArticlePreference
+): Promise<void> {
+  try {
+    console.log(`Processing vote from user ${userId} for article ${articleId}: ${preference.preference}`);
+    
+    // Step 1: Get user profile
+    const userProfile = await storage.getUserProfile(userId);
+    if (!userProfile) {
+      console.log(`No profile found for user ${userId}, skipping vote processing`);
+      return;
+    }
+    
+    // Step 2: Get the article and its summary
+    const article = await storage.getArticleById(articleId);
+    if (!article) {
+      console.log(`Article ${articleId} not found, skipping vote processing`);
+      return;
+    }
+    
+    const articleSummary = await storage.getArticleSummary(articleId);
+    
+    // Step 3: Check if there's an existing recommendation for this article
+    const existingRecommendation = await storage.getRecommendationForArticle(userId, articleId);
+    
+    // Step 4: Rescore the article based on user feedback
+    console.log(`Rescoring article based on user feedback: ${preference.explanation || 'No explanation provided'}`);
+    const { isRelevant, relevanceScore, reason } = await rescoreArticleWithUserFeedback(
+      userProfile.interests,
+      article.title,
+      articleSummary,
+      preference,
+      existingRecommendation
+    );
+    
+    // Step 5: Update or create recommendation based on new score
+    if (isRelevant && relevanceScore >= MIN_RELEVANCE_SCORE) {
+      const recommendationData: InsertRecommendation = {
+        userId: userId,
+        articleId: articleId,
+        relevanceScore: relevanceScore,
+        reasonForRecommendation: reason
+      };
+      
+      if (existingRecommendation) {
+        // Update existing recommendation
+        await storage.updateRecommendation(existingRecommendation.id, recommendationData);
+        console.log(`Updated recommendation for article ${articleId} with new score ${relevanceScore}`);
+      } else {
+        // Create new recommendation
+        await storage.createRecommendation(recommendationData);
+        console.log(`Created new recommendation for article ${articleId} with score ${relevanceScore}`);
+      }
+    } else if (existingRecommendation) {
+      // Article is no longer relevant, remove recommendation
+      await storage.deleteRecommendation(existingRecommendation.id);
+      console.log(`Removed recommendation for article ${articleId} as it's no longer relevant (score: ${relevanceScore})`);
+    }
+    
+    // Step 6: Rescore 20 most recent articles to update recommendations
+    await rescoreRecentArticles(userId, userProfile.interests, articleId);
+    
+    // Step 7: Update user profile based on all their preferences
+    await updateUserProfileFromPreferences(userId, userProfile);
+    
+  } catch (error) {
+    console.error(`Error processing article vote:`, error);
+  }
+}
+
+/**
+ * Rescore recent articles based on updated user preferences
+ */
+async function rescoreRecentArticles(userId: number, userInterests: string, excludeArticleId: number): Promise<void> {
+  try {
+    // Get 20 most recent articles (excluding the one just voted on)
+    // We limit to 20 to avoid making too many API calls
+    const recentArticles = await storage.getArticles();
+    const articlesToRescore = recentArticles
+      .filter(article => article.id !== excludeArticleId)
+      .sort((a, b) => {
+        // Sort by publication date, newest first
+        const dateA = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+        const dateB = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+        return dateB - dateA;
+      })
+      .slice(0, 20);
+    
+    console.log(`Rescoring ${articlesToRescore.length} recent articles for user ${userId}`);
+    
+    for (const article of articlesToRescore) {
+      // Get article summary
+      const summary = await storage.getArticleSummary(article.id);
+      if (!summary) {
+        console.log(`No summary found for article ${article.id}, skipping rescore`);
+        continue;
+      }
+      
+      // Check if user has provided feedback on this article
+      const preference = await storage.getArticlePreference(userId, article.id);
+      
+      // Get existing recommendation if any
+      const existingRecommendation = await storage.getRecommendationForArticle(userId, article.id);
+      
+      // Calculate article relevance (with or without user feedback)
+      let relevanceResult;
+      
+      if (preference) {
+        // If user has provided feedback, use it to rescore
+        relevanceResult = await rescoreArticleWithUserFeedback(
+          userInterests,
+          article.title,
+          summary,
+          preference,
+          existingRecommendation
+        );
+        console.log(`Rescored article ${article.id} with user feedback: ${relevanceResult.relevanceScore}`);
+      } else {
+        // Standard relevance scoring
+        relevanceResult = await analyzeArticleRelevance(
+          userInterests,
+          article.title,
+          summary.summary,
+          Array.isArray(summary.keywords) ? summary.keywords : []
+        );
+        console.log(`Rescored article ${article.id} without feedback: ${relevanceResult.relevanceScore}`);
+      }
+      
+      // Update or create recommendation based on new relevance score
+      if (relevanceResult.isRelevant && relevanceResult.relevanceScore >= MIN_RELEVANCE_SCORE) {
+        const recommendationData: InsertRecommendation = {
+          userId: userId,
+          articleId: article.id,
+          relevanceScore: relevanceResult.relevanceScore,
+          reasonForRecommendation: relevanceResult.reason
+        };
+        
+        if (existingRecommendation) {
+          // Update existing recommendation
+          await storage.updateRecommendation(existingRecommendation.id, recommendationData);
+        } else {
+          // Create new recommendation
+          await storage.createRecommendation(recommendationData);
+        }
+      } else if (existingRecommendation) {
+        // Article is no longer relevant, remove recommendation
+        await storage.deleteRecommendation(existingRecommendation.id);
+      }
+    }
+    
+    console.log(`Completed rescoring recent articles for user ${userId}`);
+  } catch (error) {
+    console.error('Error rescoring recent articles:', error);
+  }
+}
+
+/**
+ * Update user profile based on their article preferences
+ */
+async function updateUserProfileFromPreferences(userId: number, currentProfile: any): Promise<void> {
+  try {
+    // Get user's article preferences
+    const preferences = await storage.getUserArticlePreferences(userId);
+    
+    if (preferences.length === 0) {
+      console.log(`No preferences found for user ${userId}, skipping profile update`);
+      return;
+    }
+    
+    console.log(`Updating user profile based on ${preferences.length} article preferences`);
+    
+    // Get articles for these preferences to access their titles
+    const preferencesWithDetails = await Promise.all(
+      preferences.map(async pref => {
+        const article = await storage.getArticleById(pref.articleId);
+        return {
+          articleTitle: article ? article.title : `Article ${pref.articleId}`,
+          preference: pref.preference,
+          explanation: pref.explanation
+        };
+      })
+    );
+    
+    // Update user interests based on preferences
+    const updatedInterests = await updateUserInterestsFromPreferences(
+      currentProfile.interests,
+      preferencesWithDetails
+    );
+    
+    // Update the user profile with new interests
+    await storage.updateUserProfile(userId, { interests: updatedInterests });
+    console.log(`Updated interests profile for user ${userId}`);
+    
+  } catch (error) {
+    console.error('Error updating user profile from preferences:', error);
+  }
+}
+
 export async function processNewArticles(specificUserId?: number, forceRegenerate?: boolean) {
   console.log('Starting processing of new articles...');
   

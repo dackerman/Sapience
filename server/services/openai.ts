@@ -1,11 +1,17 @@
 import OpenAI from "openai";
-import { ArticleSummary, Recommendation } from "@shared/schema";
+import { ArticleSummary, Recommendation, ArticlePreference } from "@shared/schema";
 
-// Changed from gpt-4o to o4-mini as requested by the user
-const model = "o4-mini";
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+const model = "gpt-4o";
 
 // Initialize OpenAI client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Log OpenAI API calls for debugging
+function logOpenAICall(operation: string, prompt: string) {
+  console.log(`[OpenAI API] 📞 Making API call for: ${operation}`);
+  console.log(`[OpenAI API] 📝 Prompt snippet: ${prompt.substring(0, 100)}...`);
+}
 
 /**
  * Extracts the main content from HTML, removing tags, scripts, and styles
@@ -71,6 +77,9 @@ export async function generateArticleSummary(title: string, content: string): Pr
     Ensure your response is a valid JSON object as described above.
     `;
 
+    // Log the OpenAI call
+    logOpenAICall("generateArticleSummary", prompt);
+
     const response = await openai.chat.completions.create({
       model,
       messages: [{ role: "user", content: prompt }],
@@ -80,6 +89,8 @@ export async function generateArticleSummary(title: string, content: string): Pr
     // Handle potential null content from API response
     const responseContent = response.choices[0]?.message?.content || '{"summary":"Unable to generate summary","keywords":[]}';
     const result = JSON.parse(responseContent);
+    
+    console.log(`[OpenAI API] ✅ Generated summary for article "${title}"`);
     
     return {
       summary: result.summary,
@@ -134,6 +145,9 @@ export async function analyzeArticleRelevance(
     Ensure your response is a valid JSON object as described above.
     `;
 
+    // Log the OpenAI call
+    logOpenAICall("analyzeArticleRelevance", prompt);
+
     const response = await openai.chat.completions.create({
       model,
       messages: [{ role: "user", content: prompt }],
@@ -156,5 +170,145 @@ export async function analyzeArticleRelevance(
       relevanceScore: 0,
       reason: "Error analyzing relevance",
     };
+  }
+}
+
+/**
+ * Rescores an article's relevance based on user preference feedback
+ * @param userInterests The user's interests profile text
+ * @param articleTitle The article title
+ * @param articleSummary The article summary
+ * @param userPreference The user's preference (upvote/downvote)
+ * @param userExplanation The user's explanation for their preference
+ * @returns The new relevance analysis
+ */
+export async function rescoreArticleWithUserFeedback(
+  userInterests: string,
+  articleTitle: string,
+  articleSummary: ArticleSummary | null,
+  userPreference: ArticlePreference,
+  previousRecommendation: Recommendation | null
+): Promise<{ isRelevant: boolean; relevanceScore: number; reason: string }> {
+  try {
+    const summary = articleSummary?.summary || "No summary available";
+    const keywords = articleSummary?.keywords || [];
+    const previousScore = previousRecommendation?.relevanceScore || 50;
+    const previousReason = previousRecommendation?.reasonForRecommendation || "No previous recommendation";
+
+    const prompt = `
+    Analyze the relevance of an article to a user, taking into account their explicit preference feedback.
+    
+    User Interests: "${userInterests}"
+    
+    Article:
+    Title: ${articleTitle}
+    Summary: ${summary}
+    Keywords: ${keywords.join(", ")}
+    
+    User Feedback:
+    Preference: ${userPreference.preference.toUpperCase()}
+    Explanation: ${userPreference.explanation || "No explanation provided"}
+    
+    Previous Recommendation:
+    Score: ${previousScore}/100
+    Reason: "${previousReason}"
+    
+    Based on the user's interests and their explicit feedback on this article, recalculate:
+    1. Whether this article is relevant to the user's interests
+    2. On a scale of 1-100, how relevant it is (relevance score) - adjust from previous score based on user's feedback
+    3. Explain in 1-2 sentences why this article is or isn't relevant to the user, taking their feedback into account
+    
+    Format your response as a JSON object with the following structure:
+    {
+      "isRelevant": true/false,
+      "relevanceScore": number between 1-100,
+      "reason": "Your explanation of relevance factoring in user feedback"
+    }
+    
+    Ensure your response is a valid JSON object as described above.
+    `;
+
+    // Log the OpenAI call
+    logOpenAICall("rescoreArticleWithUserFeedback", prompt);
+
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" }
+    });
+
+    // Handle potential null content from API response
+    const responseContent = response.choices[0]?.message?.content || 
+      '{"isRelevant":false,"relevanceScore":0,"reason":"Unable to analyze relevance based on feedback"}';
+    const result = JSON.parse(responseContent);
+    
+    console.log(`[OpenAI API] ✅ Rescored article "${articleTitle}" - New score: ${result.relevanceScore}/100`);
+    
+    return {
+      isRelevant: Boolean(result.isRelevant),
+      relevanceScore: Number(result.relevanceScore) || 0,
+      reason: result.reason || "Relevance adjusted based on your feedback",
+    };
+  } catch (error) {
+    console.error("Error rescoring with feedback:", error);
+    return {
+      isRelevant: false,
+      relevanceScore: 0,
+      reason: "Error adjusting relevance based on feedback",
+    };
+  }
+}
+
+/**
+ * Updates a user's interest profile based on their article preferences
+ * @param currentInterests The user's current interests profile
+ * @param recentPreferences Array of the user's recent article preferences with explanations
+ * @returns Updated interests profile
+ */
+export async function updateUserInterestsFromPreferences(
+  currentInterests: string,
+  recentPreferences: Array<{
+    articleTitle: string,
+    preference: string,
+    explanation: string | null
+  }>
+): Promise<string> {
+  try {
+    // Build a string of recent preferences
+    const preferencesText = recentPreferences
+      .map(p => `Article: "${p.articleTitle}" - ${p.preference.toUpperCase()} - Explanation: ${p.explanation || "None"}`)
+      .join("\n");
+
+    const prompt = `
+    Update a user's interest profile based on their recent article preferences.
+    
+    Current interests profile: "${currentInterests}"
+    
+    Recent article preferences:
+    ${preferencesText}
+    
+    Based on these recent preferences, refine and update the user's interest profile. Keep the existing interests
+    that still seem relevant, but adjust for new interests revealed by their preferences and explanations.
+    
+    Return only the updated interest profile text, without any additional explanations or formatting.
+    Make it approximately the same length as the current profile.
+    `;
+
+    // Log the OpenAI call
+    logOpenAICall("updateUserInterestsFromPreferences", prompt);
+
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const updatedInterests = response.choices[0]?.message?.content || currentInterests;
+    
+    console.log(`[OpenAI API] ✅ Updated user interests profile based on ${recentPreferences.length} preferences`);
+    
+    return updatedInterests;
+  } catch (error) {
+    console.error("Error updating interests from preferences:", error);
+    return currentInterests; // Return original on error
   }
 }
