@@ -38,14 +38,16 @@ export function setupAuth(app: Express) {
   // Session configuration
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "sapience-rss-reader-secret",
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Changed to true to ensure session is saved on each request
+    saveUninitialized: true, // Changed to true to create session for all requests
     store: new SessionStore({
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
     cookie: {
       secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      sameSite: 'lax' // Allow cookies for same-site navigation
     }
   };
 
@@ -111,7 +113,13 @@ export function setupAuth(app: Express) {
       // Auto-login the user after registration
       req.login(user, (err) => {
         if (err) return next(err);
-        return res.status(201).json(user);
+        
+        // Save the session to ensure persistence
+        req.session.save(err => {
+          if (err) return next(err);
+          console.log(`New user ${user.username} registered and logged in, session saved`);
+          return res.status(201).json(user);
+        });
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -125,19 +133,40 @@ export function setupAuth(app: Express) {
       if (!user) {
         return res.status(401).json({ message: info?.message || "Authentication failed" });
       }
+      
+      // Explicitly login and save the session to ensure persistence
       req.login(user, (err) => {
         if (err) return next(err);
-        return res.json(user);
+        
+        // Make sure the session is saved before responding
+        req.session.save(err => {
+          if (err) return next(err);
+          console.log(`User ${user.username} logged in successfully, session saved`);
+          return res.json(user);
+        });
       });
     })(req, res, next);
   });
 
   app.post("/api/logout", (req, res) => {
+    const username = req.user?.username;
+    
     req.logout((err) => {
       if (err) {
         return res.status(500).json({ message: "Error logging out" });
       }
-      res.status(200).json({ message: "Logged out successfully" });
+      
+      // Destroy the session completely
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Error destroying session:", err);
+          return res.status(500).json({ message: "Error during logout" });
+        }
+        
+        console.log(`User ${username} logged out successfully`);
+        res.clearCookie('connect.sid'); // Clear the session cookie
+        res.status(200).json({ message: "Logged out successfully" });
+      });
     });
   });
 
