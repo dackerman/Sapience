@@ -24,7 +24,16 @@ async function login(username, password) {
       password
     });
     
-    return response.data;
+    // Extract session cookie from the response headers
+    const cookies = response.headers['set-cookie'];
+    if (!cookies || cookies.length === 0) {
+      throw new Error('No session cookie returned from login');
+    }
+    
+    return {
+      user: response.data,
+      sessionCookie: cookies[0]
+    };
   } catch (error) {
     console.error('Login failed:', error.response?.data || error.message);
     throw error;
@@ -45,7 +54,7 @@ async function testArticlePreferences() {
   try {
     // Step 1: Create test users and login
     console.log('Logging in as test user...');
-    const authResponse = await login('testuser', 'password123');
+    const authResponse = await login('defaultuser', 'password123');
     const authCookie = authResponse.sessionCookie;
     
     // Step 2: Get available articles to test with

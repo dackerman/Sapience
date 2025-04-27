@@ -7,7 +7,7 @@
  * Note: Make sure to run the database migration first with 'npm run db:push'
  */
 
-import { db } from './server/db.ts';
+import { db, pool } from './server/db.ts';
 import { storage } from './server/storage.ts';
 import { config } from 'dotenv';
 
@@ -106,7 +106,7 @@ async function testDatabaseStoragePreferences() {
     throw error;
   } finally {
     // Close database connection
-    await db.end();
+    await pool.end();
   }
 }
 
