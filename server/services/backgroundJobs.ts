@@ -366,30 +366,39 @@ export async function processNewArticles(specificUserId?: number, forceRegenerat
             
             console.log(`Finished regenerating recommendations for user ${user.id}`);
           } 
-          else if (recommendations.length === 0) {
-            // For regular scheduled jobs, only generate if no recommendations exist
-            console.log(`Found ${articleSummaries.length} existing article summaries with no recommendations for user ${user.id}`);
-            
-            // Get the latest profile to ensure we're using the most up-to-date interests
-            const latestProfile = await storage.getUserProfile(user.id);
-            if (!latestProfile) {
-              console.log(`No profile found for user ${user.id}, skipping recommendation generation`);
-              continue;
-            }
-            
-            // Generate recommendations for existing summaries
-            for (const summary of articleSummaries) {
-              try {
-                await generateRecommendationForSummary(summary, user.id, latestProfile.interests);
-              } catch (error) {
-                console.error(`Error generating recommendation for summary ${summary.id}:`, error);
-              }
-            }
-            
-            console.log(`Finished generating recommendations for user ${user.id}`);
-          }
           else {
-            console.log(`User ${user.id} already has recommendations, skipping generation`);
+            // Check if there are new article summaries that don't have recommendations for this user
+            console.log(`Checking for new articles without recommendations for user ${user.id}...`);
+            
+            const existingRecommendationArticleIds = recommendations.map(r => r.articleId);
+            const articlesWithoutRecommendations = articleSummaries.filter(
+              summary => !existingRecommendationArticleIds.includes(summary.articleId)
+            );
+            
+            if (articlesWithoutRecommendations.length > 0) {
+              console.log(`Found ${articlesWithoutRecommendations.length} new articles without recommendations for user ${user.id}`);
+              
+              // Get the latest profile to ensure we're using the most up-to-date interests
+              const latestProfile = await storage.getUserProfile(user.id);
+              if (!latestProfile) {
+                console.log(`No profile found for user ${user.id}, skipping recommendation generation`);
+                continue;
+              }
+              
+              // Generate recommendations only for articles that don't have recommendations yet
+              for (const summary of articlesWithoutRecommendations) {
+                try {
+                  console.log(`Generating recommendation for new article ${summary.articleId} for user ${user.id}`);
+                  await generateRecommendationForSummary(summary, user.id, latestProfile.interests);
+                } catch (error) {
+                  console.error(`Error generating recommendation for summary ${summary.id}:`, error);
+                }
+              }
+              
+              console.log(`Finished generating recommendations for new articles for user ${user.id}`);
+            } else {
+              console.log(`No new articles found without recommendations for user ${user.id}, skipping generation`);
+            }
           }
         } else {
           console.log("No article summaries found to generate recommendations from");
