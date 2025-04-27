@@ -1245,6 +1245,59 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
   }
+  
+  // Admin methods
+  async getUserRecommendationsData(): Promise<UserRecommendationData[]> {
+    try {
+      // Get all users
+      const allUsers = await this.getUsers();
+      if (!allUsers.length) return [];
+      
+      // Get all recommendations
+      const allRecommendations = await this.getAllRecommendations();
+      if (!allRecommendations.length) return [];
+      
+      // Group recommendations by user
+      const result: UserRecommendationData[] = [];
+      
+      for (const user of allUsers) {
+        // Get recommendations for this user
+        const userRecs = allRecommendations.filter(rec => rec.userId === user.id);
+        
+        // Create recommendation entries with article titles
+        const recommendationsWithTitles = [];
+        
+        for (const rec of userRecs) {
+          // Get the article for this recommendation
+          const article = await this.getArticleById(rec.articleId);
+          
+          recommendationsWithTitles.push({
+            id: rec.id,
+            articleId: rec.articleId,
+            title: article?.title || "Unknown Article",
+            relevanceScore: rec.relevanceScore,
+            viewed: rec.viewed,
+            createdAt: rec.createdAt?.toISOString() || new Date().toISOString()
+          });
+        }
+        
+        // Sort by relevance score (highest first)
+        recommendationsWithTitles.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        
+        // Add to result
+        result.push({
+          userId: user.id,
+          username: user.username,
+          recommendations: recommendationsWithTitles
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Error getting user recommendations data:", error);
+      return [];
+    }
+  }
 }
 
 // Export the database storage implementation
