@@ -1,9 +1,11 @@
 // Script to run migrations on the appropriate database
 // Usage: NODE_ENV=production node scripts/run-migrations.js
 
-const { execSync } = require('child_process');
-const { URL } = require('url');
-require('dotenv').config();
+import { execSync } from 'child_process';
+import { URL } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Get the environment and database configuration
 const environment = process.env.NODE_ENV || 'development';

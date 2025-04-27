@@ -1,9 +1,13 @@
 // Script to provision a database for a specific environment
 // Usage: NODE_ENV=production node scripts/provision-database.js
 
-const { Pool } = require('pg');
-const { URL } = require('url');
-require('dotenv').config();
+import pg from 'pg';
+import { URL } from 'url';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+
+const { Pool } = pg;
+dotenv.config();
 
 // Get the environment and database configuration
 const environment = process.env.NODE_ENV || 'development';
@@ -51,13 +55,16 @@ async function provisionDatabase() {
     database: connectionInfo.database
   });
 
-  // Connect to PostgreSQL using the default database
+  // Connect to PostgreSQL using the default database with SSL enabled
   const pool = new Pool({
     host: connectionInfo.host,
     port: connectionInfo.port,
     user: connectionInfo.user,
     password: connectionInfo.password,
-    database: connectionInfo.database // Connect to the default database first
+    database: connectionInfo.database, // Connect to the default database first
+    ssl: {
+      rejectUnauthorized: false // Less secure but works with self-signed certs
+    }
   });
 
   try {

@@ -1,9 +1,11 @@
 // Script to start the application with the environment-specific database
 // Usage: NODE_ENV=production node scripts/start-environment.js
 
-const { spawn } = require('child_process');
-const { URL } = require('url');
-require('dotenv').config();
+import { spawn } from 'child_process';
+import { URL } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Get the environment and database configuration
 const environment = process.env.NODE_ENV || 'development';
