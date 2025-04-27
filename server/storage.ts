@@ -389,8 +389,26 @@ export class MemStorage implements IStorage {
     return true; // Not applicable for MemStorage, but return true to indicate success
   }
   
+  async getAllRecommendations(): Promise<Recommendation[]> {
+    return Array.from(this.recommendations.values());
+  }
+  
+  async getRecommendationsForAllUsersForArticle(articleId: number): Promise<Recommendation[]> {
+    return Array.from(this.recommendations.values())
+      .filter(rec => rec.articleId === articleId);
+  }
+  
   async getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]> {
     return [];
+  }
+  
+  async getAllArticlePreferences(): Promise<ArticlePreference[]> {
+    return Array.from(this.articlePreferences.values());
+  }
+  
+  async getPreferencesForArticle(articleId: number): Promise<ArticlePreference[]> {
+    return Array.from(this.articlePreferences.values())
+      .filter(pref => pref.articleId === articleId);
   }
   
   async getUnprocessedArticles(limit?: number): Promise<Article[]> {
