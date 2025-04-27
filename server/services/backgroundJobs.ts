@@ -1,6 +1,8 @@
 import { storage } from '../storage';
 import { generateArticleSummary, analyzeArticleRelevance } from './openai';
 import { Article, ArticleSummary, InsertArticleSummary, InsertRecommendation } from '@shared/schema';
+import Parser from 'rss-parser';
+import axios from 'axios';
 
 // Configuration
 const BATCH_SIZE = 5; // Number of articles to process in one batch
@@ -307,10 +309,6 @@ export async function refreshAllFeeds() {
     const autoRefreshFeeds = feeds.filter(feed => feed.autoRefresh !== false);
     
     console.log(`Found ${autoRefreshFeeds.length} feeds with auto-refresh enabled`);
-    
-    // Import parser in the function scope to avoid circular dependencies
-    const Parser = require('rss-parser');
-    const axios = require('axios');
     
     // Initialize RSS parser
     const parser = new Parser({
