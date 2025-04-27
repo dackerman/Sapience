@@ -9,11 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { Article, Feed } from '@shared/schema';
+import type { Article, Feed, ArticleSummary, Recommendation } from '@shared/schema';
 import { formatDistanceToNow } from 'date-fns';
 import { useFeedActions } from '@/hooks/useFeedActions';
 import { useMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RecommendationStatusBadge } from './RecommendationStatus';
 
 interface ArticleListProps {
   feedId: number | null;
@@ -45,7 +46,7 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
     data: articles = [], 
     isLoading: articlesLoading,
     refetch: refetchArticles
-  } = useQuery<Article[]>({
+  } = useQuery<ArticleWithSummary[]>({
     queryKey: feedId ? [`/api/articles?feedId=${feedId}&sortBy=${sortBy}`] : ['empty-articles'],
     enabled: !!feedId
   });
@@ -86,6 +87,19 @@ export default function ArticleList({ feedId, onSelectArticle, selectedArticle }
       return article.description.substring(0, 200) + (article.description.length > 200 ? '...' : '');
     }
     return 'No preview available';
+  };
+  
+  // Determine recommendation status of an article
+  const getRecommendationStatus = (article: ArticleWithSummary) => {
+    if (!article.summary) {
+      return "not-processed";
+    }
+    
+    if (article.recommendation) {
+      return article.recommendation.relevanceScore >= 50 ? "recommended" : "not-recommended";
+    }
+    
+    return "not-processed";
   };
 
   if (!feedId) {
