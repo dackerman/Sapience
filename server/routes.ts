@@ -1131,6 +1131,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch admin statistics" });
     }
   });
+  
+  // Admin API endpoint for fetching user recommendations data
+  app.get("/api/admin/user-recommendations", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Get recommendations data grouped by user
+      const userRecommendations = await storage.getUserRecommendationsData();
+      
+      res.json(userRecommendations);
+    } catch (error) {
+      console.error("Error fetching user recommendations data:", error);
+      res.status(500).json({ message: "Failed to fetch user recommendations data" });
+    }
+  });
 
   return httpServer;
 }

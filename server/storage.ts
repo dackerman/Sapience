@@ -450,6 +450,12 @@ export class MemStorage implements IStorage {
   async getUnprocessedArticles(limit?: number): Promise<Article[]> {
     return [];
   }
+  
+  // Admin methods
+  async getUserRecommendationsData(): Promise<UserRecommendationData[]> {
+    // Default implementation for memory storage - return empty array
+    return [];
+  }
 
   // Article Preference methods
   async getArticlePreference(userId: number, articleId: number): Promise<ArticlePreference | undefined> {
@@ -1276,7 +1282,7 @@ export class DatabaseStorage implements IStorage {
             articleId: rec.articleId,
             title: article?.title || "Unknown Article",
             relevanceScore: rec.relevanceScore,
-            viewed: rec.viewed,
+            viewed: rec.viewed || false,
             createdAt: rec.createdAt?.toISOString() || new Date().toISOString()
           });
         }
