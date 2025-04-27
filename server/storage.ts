@@ -390,12 +390,22 @@ export class MemStorage implements IStorage {
   }
   
   async getAllRecommendations(): Promise<Recommendation[]> {
-    return Array.from(this.recommendations.values());
+    // Convert to proper type
+    const recommendationsArray: Recommendation[] = [];
+    for (const [_, recommendation] of this.recommendations.entries()) {
+      recommendationsArray.push(recommendation);
+    }
+    return recommendationsArray;
   }
   
   async getRecommendationsForAllUsersForArticle(articleId: number): Promise<Recommendation[]> {
-    return Array.from(this.recommendations.values())
-      .filter(rec => rec.articleId === articleId);
+    const recommendationsArray: Recommendation[] = [];
+    for (const [_, recommendation] of this.recommendations.entries()) {
+      if (recommendation.articleId === articleId) {
+        recommendationsArray.push(recommendation);
+      }
+    }
+    return recommendationsArray;
   }
   
   async getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]> {
@@ -403,12 +413,21 @@ export class MemStorage implements IStorage {
   }
   
   async getAllArticlePreferences(): Promise<ArticlePreference[]> {
-    return Array.from(this.articlePreferences.values());
+    const preferencesArray: ArticlePreference[] = [];
+    for (const [_, preference] of this.articlePreferences.entries()) {
+      preferencesArray.push(preference);
+    }
+    return preferencesArray;
   }
   
   async getPreferencesForArticle(articleId: number): Promise<ArticlePreference[]> {
-    return Array.from(this.articlePreferences.values())
-      .filter(pref => pref.articleId === articleId);
+    const preferencesArray: ArticlePreference[] = [];
+    for (const [_, preference] of this.articlePreferences.entries()) {
+      if (preference.articleId === articleId) {
+        preferencesArray.push(preference);
+      }
+    }
+    return preferencesArray;
   }
   
   async getUnprocessedArticles(limit?: number): Promise<Article[]> {

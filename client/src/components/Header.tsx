@@ -68,16 +68,36 @@ export default function Header({ toggleSidebar }: HeaderProps) {
             >
               <Plus className="h-4 w-4" />
             </Button>
-            <Link href="/profile">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="h-8 w-8"
-                title="Profile"
-              >
-                <User className="h-4 w-4" />
-              </Button>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <Link href="/profile">
+                  <DropdownMenuItem>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/admin">
+                  <DropdownMenuItem>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Admin
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         
@@ -134,6 +154,12 @@ export default function Header({ toggleSidebar }: HeaderProps) {
                 <DropdownMenuItem>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/admin">
+                <DropdownMenuItem>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  <span>Admin Dashboard</span>
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />
