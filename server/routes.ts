@@ -1038,5 +1038,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin API endpoints for pipeline visualization
+  app.get("/api/admin/pipeline", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Get all articles for pipeline visualization
+      const allArticles = await storage.getArticles();
+      
+      // Get all article summaries
+      const allSummaries = await storage.getArticleSummaries();
+      
+      // Create a pipeline status object for each article
+      const pipelineStatus = await Promise.all(
+        allArticles.map(async (article) => {
+          // Find the article's summary if it exists
+          const summary = allSummaries.find(s => s.articleId === article.id);
+          
+          // Count recommendations for this article
+          const recommendations = await storage.getRecommendationsForAllUsersForArticle(article.id);
+          
+          // Count preferences (upvotes/downvotes) for this article
+          const preferences = await storage.getPreferencesForArticle(article.id);
+          
+          return {
+            id: article.id,
+            title: article.title,
+            feedId: article.feedId,
+            pubDate: article.pubDate,
+            createdAt: article.createdAt,
+            updatedAt: article.updatedAt,
+            status: {
+              hasContent: Boolean(article.content && article.content.length > 100),
+              hasSummary: Boolean(summary),
+              summaryStatus: summary ? (summary.summary.toLowerCase().includes("error") ? "error" : "success") : "missing",
+              processedAt: summary?.processedAt,
+              recommendationCount: recommendations.length,
+              upvoteCount: preferences.filter(p => p.preference === "upvote").length,
+              downvoteCount: preferences.filter(p => p.preference === "downvote").length
+            }
+          };
+        })
+      );
+      
+      res.json(pipelineStatus);
+    } catch (error) {
+      console.error("Error fetching pipeline data:", error);
+      res.status(500).json({ message: "Failed to fetch pipeline data" });
+    }
+  });
+  
+  // Admin API endpoint for getting processing statistics
+  app.get("/api/admin/stats", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const allArticles = await storage.getArticles();
+      const allSummaries = await storage.getArticleSummaries();
+      const allRecommendations = await storage.getAllRecommendations();
+      const allPreferences = await storage.getAllArticlePreferences();
+      
+      const stats = {
+        articles: {
+          total: allArticles.length,
+          withContent: allArticles.filter(a => a.content && a.content.length > 100).length
+        },
+        summaries: {
+          total: allSummaries.length,
+          withErrors: allSummaries.filter(s => s.summary.toLowerCase().includes("error")).length
+        },
+        recommendations: {
+          total: allRecommendations.length,
+          viewed: allRecommendations.filter(r => r.viewed).length
+        },
+        preferences: {
+          total: allPreferences.length,
+          upvotes: allPreferences.filter(p => p.preference === "upvote").length,
+          downvotes: allPreferences.filter(p => p.preference === "downvote").length
+        },
+        processingQueue: {
+          unprocessedArticles: allArticles.filter(a => !allSummaries.some(s => s.articleId === a.id)).length
+        }
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Failed to fetch admin statistics" });
+    }
+  });
+
   return httpServer;
 }

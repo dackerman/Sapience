@@ -62,12 +62,16 @@ export interface IStorage {
   markRecommendationAsViewed(id: number): Promise<Recommendation | undefined>;
   deleteAllRecommendations(): Promise<boolean>;
   deleteUserRecommendations(userId: number): Promise<boolean>;
+  getAllRecommendations(): Promise<Recommendation[]>;
+  getRecommendationsForAllUsersForArticle(articleId: number): Promise<Recommendation[]>;
   
   // Article Preference methods
   getArticlePreference(userId: number, articleId: number): Promise<ArticlePreference | undefined>;
   createArticlePreference(preference: InsertArticlePreference): Promise<ArticlePreference>;
   updateArticlePreference(id: number, preference: Partial<ArticlePreference>): Promise<ArticlePreference | undefined>;
   getUserArticlePreferences(userId: number): Promise<ArticlePreference[]>;
+  getAllArticlePreferences(): Promise<ArticlePreference[]>;
+  getPreferencesForArticle(articleId: number): Promise<ArticlePreference[]>;
 
   // Combined query for "For You" page
   getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]>;
@@ -1023,6 +1027,26 @@ export class DatabaseStorage implements IStorage {
     console.log(`Recommendations deleted for user ${userId}`);
     return true;
   }
+  
+  async getAllRecommendations(): Promise<Recommendation[]> {
+    try {
+      return await db.select().from(recommendations);
+    } catch (err) {
+      console.error('Error getting all recommendations:', err);
+      return [];
+    }
+  }
+  
+  async getRecommendationsForAllUsersForArticle(articleId: number): Promise<Recommendation[]> {
+    try {
+      return await db.select()
+        .from(recommendations)
+        .where(eq(recommendations.articleId, articleId));
+    } catch (err) {
+      console.error(`Error getting recommendations for article ${articleId}:`, err);
+      return [];
+    }
+  }
 
   // Combined queries for "For You" page
   async getRecommendedArticles(userId: number): Promise<ArticleWithSummary[]> {
@@ -1146,6 +1170,26 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(articlePreferences)
       .where(eq(articlePreferences.userId, userId));
+  }
+  
+  async getAllArticlePreferences(): Promise<ArticlePreference[]> {
+    try {
+      return await db.select().from(articlePreferences);
+    } catch (err) {
+      console.error('Error getting all article preferences:', err);
+      return [];
+    }
+  }
+  
+  async getPreferencesForArticle(articleId: number): Promise<ArticlePreference[]> {
+    try {
+      return await db.select()
+        .from(articlePreferences)
+        .where(eq(articlePreferences.articleId, articleId));
+    } catch (err) {
+      console.error(`Error getting preferences for article ${articleId}:`, err);
+      return [];
+    }
   }
 }
 
