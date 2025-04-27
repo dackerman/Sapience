@@ -1,4 +1,4 @@
-import { Clock, Bookmark, Share, ExternalLink, RefreshCw, Maximize2, FileText, BookOpen } from "lucide-react";
+import { Clock, Bookmark, Share, ExternalLink, RefreshCw, Maximize2, FileText, BookOpen, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -9,6 +9,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import IframeArticle from "./IframeArticle";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/use-auth";
 
 // Component to handle regeneration of article summaries
 function RegenerateSummaryButton({ articleId }: { articleId: number }) {
@@ -66,8 +78,13 @@ export default function ArticleView({
   isLoading,
 }: ArticleViewProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   // State to toggle between summary and full content
   const [showFullContent, setShowFullContent] = useState(false);
+  // State for vote preference dialog
+  const [voteDialogOpen, setVoteDialogOpen] = useState(false);
+  const [voteType, setVoteType] = useState<"upvote" | "downvote" | null>(null);
+  const [explanation, setExplanation] = useState("");
 
   // Fetch external content if we don't have article content
   const {
@@ -110,6 +127,68 @@ export default function ArticleView({
       });
     },
   });
+
+  // Mutation for voting on articles
+  const voteMutation = useMutation({
+    mutationFn: async ({ 
+      articleId, 
+      operation, 
+      explanation 
+    }: { 
+      articleId: number, 
+      operation: 'upvote' | 'downvote', 
+      explanation: string 
+    }) => {
+      return apiRequest("POST", `/api/articles/${articleId}/action`, {
+        operation,
+        explanation
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/articles`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/recommendations`] });
+      toast({
+        title: "Success",
+        description: `Your ${voteType} has been recorded. Thank you for the feedback!`,
+      });
+      // Reset the dialog state
+      setVoteDialogOpen(false);
+      setExplanation("");
+      setVoteType(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit your feedback. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleVote = (type: 'upvote' | 'downvote') => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to vote on articles",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Open dialog to get explanation
+    setVoteType(type);
+    setVoteDialogOpen(true);
+  };
+
+  const submitVote = () => {
+    if (!article || !voteType) return;
+    
+    voteMutation.mutate({
+      articleId: article.id,
+      operation: voteType,
+      explanation
+    });
+  };
 
   const handleToggleFavorite = () => {
     if (!article) return;
@@ -392,6 +471,31 @@ export default function ArticleView({
                   </>
                 )}
 
+                {/* Article voting UI */}
+                <div className="flex flex-col gap-2 mt-6 border-t pt-4 border-gray-200">
+                  <p className="text-sm text-gray-500">Help improve our recommendations:</p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => handleVote('upvote')}
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      Helpful
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => handleVote('downvote')}
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                      Not Helpful
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="mt-6 md:mt-8 border-t border-gray-200 pt-4">
                   <a
                     href={article.link}
@@ -408,6 +512,45 @@ export default function ArticleView({
           </div>
         )}
       </ScrollArea>
+
+      {/* Preference explanation dialog */}
+      <Dialog open={voteDialogOpen} onOpenChange={setVoteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {voteType === 'upvote' ? 'What was helpful about this article?' : 'What was not helpful about this article?'}
+            </DialogTitle>
+            <DialogDescription>
+              Your feedback helps us improve article recommendations for you and other users.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="explanation">Explanation (optional)</Label>
+              <Textarea
+                id="explanation"
+                placeholder={voteType === 'upvote' 
+                  ? "What did you like about this article? Was it informative, well-written, relevant to your interests?"
+                  : "What didn't you like? Was it irrelevant, poorly written, or not what you expected?"}
+                value={explanation}
+                onChange={(e) => setExplanation(e.target.value)}
+                className="min-h-[120px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={submitVote} 
+              disabled={voteMutation.isPending}
+            >
+              {voteMutation.isPending ? 'Submitting...' : 'Submit Feedback'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

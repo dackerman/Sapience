@@ -577,12 +577,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const actionData = articleOperationSchema.parse({
         id,
-        operation: req.body.operation
+        operation: req.body.operation,
+        explanation: req.body.explanation
       });
 
       const article = await storage.getArticleById(id);
       if (!article) return res.status(404).json({ message: "Article not found" });
 
+      // Handle upvote/downvote operations which require authentication
+      if (actionData.operation === 'upvote' || actionData.operation === 'downvote') {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Authentication required for voting" });
+        }
+
+        // Save article preference
+        const preference = await storage.createArticlePreference({
+          userId: req.user.id,
+          articleId: id,
+          preference: actionData.operation,
+          explanation: actionData.explanation || null
+        });
+
+        // Update user profile if the user provided an explanation to improve recommendations
+        if (actionData.explanation) {
+          const userProfile = await storage.getUserProfile(req.user.id);
+          if (userProfile) {
+            // Get existing article preferences to build context for recommendations
+            const userPreferences = await storage.getUserArticlePreferences(req.user.id);
+            
+            // We might want to trigger recommendation regeneration here in the future
+            console.log(`User ${req.user.id} ${actionData.operation}d article ${id} with explanation: "${actionData.explanation}"`);
+          }
+        }
+
+        // Get the article preference to return in the response
+        const currentPreference = await storage.getArticlePreference(req.user.id, id);
+        return res.json({
+          ...article,
+          preference: currentPreference
+        });
+      }
+
+      // Handle other operations (read/unread/favorite/unfavorite)
       let updateData = {};
 
       switch (actionData.operation) {
@@ -608,6 +644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof ZodError) {
         res.status(400).json({ message: error.errors[0].message });
       } else {
+        console.error("Error in article action:", error);
         res.status(500).json({ message: "Failed to update article" });
       }
     }
@@ -628,6 +665,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching recommendations:", error);
       res.status(500).json({
         message: "Failed to fetch recommendations",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Endpoint to get article preferences for the authenticated user
+  app.get("/api/article-preferences", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const preferences = await storage.getUserArticlePreferences(req.user.id);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching article preferences:", error);
+      res.status(500).json({
+        message: "Failed to fetch article preferences",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Endpoint to get a specific article preference
+  app.get("/api/articles/:id/preference", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid article ID" });
+      }
+      
+      const preference = await storage.getArticlePreference(req.user.id, id);
+      if (preference) {
+        res.json(preference);
+      } else {
+        res.status(404).json({ message: "No preference found for this article" });
+      }
+    } catch (error) {
+      console.error("Error fetching article preference:", error);
+      res.status(500).json({
+        message: "Failed to fetch article preference",
         error: error instanceof Error ? error.message : String(error)
       });
     }
