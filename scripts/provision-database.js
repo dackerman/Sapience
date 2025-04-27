@@ -85,10 +85,16 @@ async function provisionDatabase() {
     }
 
     // Create a new connection to the specific database to run migrations
-    const targetConnectionString = process.env.DATABASE_URL.replace(
-      `/${connectionInfo.database}`,
-      `/${targetDatabase}`
-    );
+    // Use the URL object to properly handle the connection string with SSL
+    const baseUrl = new URL(process.env.DATABASE_URL);
+    baseUrl.pathname = `/${targetDatabase}`;
+    
+    // Ensure SSL is enabled
+    if (!baseUrl.searchParams.has('sslmode')) {
+      baseUrl.searchParams.set('sslmode', 'require');
+    }
+    
+    const targetConnectionString = baseUrl.toString();
     
     console.log(`\nTo connect to the ${environment} database, use:\nexport DATABASE_URL="${targetConnectionString}"`);
     console.log(`\nRun migrations with:\nNODE_ENV=${environment} npm run db:push`);

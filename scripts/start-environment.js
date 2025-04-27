@@ -33,6 +33,11 @@ function updateConnectionString(connectionString, dbName) {
     // Update path (database name)
     url.pathname = `/${dbName}`;
     
+    // Ensure SSL is enabled
+    if (!url.searchParams.has('sslmode')) {
+      url.searchParams.set('sslmode', 'require');
+    }
+    
     return url.toString();
   } catch (error) {
     console.error('Failed to parse DATABASE_URL:', error);

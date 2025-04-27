@@ -12,7 +12,12 @@ if (!dbConfig.connectionString) {
   );
 }
 
-export const pool = new Pool({ connectionString: dbConfig.connectionString });
+export const pool = new Pool({ 
+  connectionString: dbConfig.connectionString, 
+  ssl: {
+    rejectUnauthorized: false // Needed for some cloud PostgreSQL providers
+  }
+});
 export const db = drizzle(pool, { schema });
 
 // Log connection to the database for debugging

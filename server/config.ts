@@ -28,6 +28,11 @@ function modifyConnectionStringForEnvironment(connectionString: string, dbName: 
     // Update path (database name)
     url.pathname = `/${dbName}`;
     
+    // Ensure SSL is enabled (important for cloud database providers)
+    if (!url.searchParams.has('sslmode')) {
+      url.searchParams.set('sslmode', 'require');
+    }
+    
     return url.toString();
   } catch (error) {
     console.error('Failed to parse DATABASE_URL:', error);
