@@ -7,8 +7,8 @@
  * Note: Make sure to run the database migration first with 'npm run db:push'
  */
 
-import { db } from './server/db.js';
-import { storage } from './server/storage.js';
+import { db } from './server/db.ts';
+import { storage } from './server/storage.ts';
 import { config } from 'dotenv';
 
 config();

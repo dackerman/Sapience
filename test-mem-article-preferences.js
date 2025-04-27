@@ -5,7 +5,7 @@
  * to ensure the core functionality works consistently across storage implementations.
  */
 
-import { MemStorage } from './server/storage.js';
+import { MemStorage } from './server/storage.ts';
 
 async function testMemStoragePreferences() {
   console.log('Starting MemStorage article preferences tests...');
