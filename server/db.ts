@@ -2,23 +2,15 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
-import { dbConfig } from './config';
+import 'dotenv/config'
 
 neonConfig.webSocketConstructor = ws;
 
-if (!dbConfig.connectionString) {
+if (!process.env.DATABASE_URL) {
   throw new Error(
-    "Database connection string must be set. Did you forget to provision a database?",
+    "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = new Pool({ 
-  connectionString: dbConfig.connectionString, 
-  ssl: {
-    rejectUnauthorized: false // Needed for some cloud PostgreSQL providers
-  }
-});
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
-
-// Log connection to the database for debugging
-console.log(`Connected to database: ${dbConfig.database}`);
