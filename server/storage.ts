@@ -57,6 +57,8 @@ export interface IStorage {
   getRecommendationById(id: number): Promise<Recommendation | undefined>;
   getRecommendationForArticle(userId: number, articleId: number): Promise<Recommendation | undefined>;
   createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation>;
+  updateRecommendation(id: number, recommendation: Partial<InsertRecommendation>): Promise<Recommendation | undefined>;
+  deleteRecommendation(id: number): Promise<boolean>;
   markRecommendationAsViewed(id: number): Promise<Recommendation | undefined>;
   deleteAllRecommendations(): Promise<boolean>;
   deleteUserRecommendations(userId: number): Promise<boolean>;
@@ -361,6 +363,14 @@ export class MemStorage implements IStorage {
   
   async createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation> {
     throw new Error("Not implemented in MemStorage");
+  }
+  
+  async updateRecommendation(id: number, recommendation: Partial<InsertRecommendation>): Promise<Recommendation | undefined> {
+    return undefined; // Not implemented in MemStorage
+  }
+  
+  async deleteRecommendation(id: number): Promise<boolean> {
+    return true; // Not implemented in MemStorage
   }
   
   async markRecommendationAsViewed(id: number): Promise<Recommendation | undefined> {
@@ -976,6 +986,24 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return recommendation;
+  }
+  
+  async updateRecommendation(id: number, recommendation: Partial<InsertRecommendation>): Promise<Recommendation | undefined> {
+    const [updatedRecommendation] = await db
+      .update(recommendations)
+      .set(recommendation)
+      .where(eq(recommendations.id, id))
+      .returning();
+    
+    return updatedRecommendation;
+  }
+  
+  async deleteRecommendation(id: number): Promise<boolean> {
+    await db
+      .delete(recommendations)
+      .where(eq(recommendations.id, id));
+    
+    return true;
   }
   
   async deleteAllRecommendations(): Promise<boolean> {
