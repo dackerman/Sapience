@@ -293,23 +293,159 @@ async function generateRecommendationForSummary(summary: ArticleSummary, userId:
   }
 }
 
+/**
+ * Refreshes all feeds with autoRefresh enabled
+ * Fetches the latest articles from each feed source
+ */
+export async function refreshAllFeeds() {
+  console.log('Starting to refresh all active feeds...');
+  
+  try {
+    // Get all feeds with autoRefresh enabled
+    const feeds = await storage.getFeeds();
+    // Treat all feeds as auto-refresh enabled by default (null or undefined is treated as true)
+    const autoRefreshFeeds = feeds.filter(feed => feed.autoRefresh !== false);
+    
+    console.log(`Found ${autoRefreshFeeds.length} feeds with auto-refresh enabled`);
+    
+    // Import parser in the function scope to avoid circular dependencies
+    const Parser = require('rss-parser');
+    const axios = require('axios');
+    
+    // Initialize RSS parser
+    const parser = new Parser({
+      customFields: {
+        item: [
+          ['content:encoded', 'content'],
+          ['media:content', 'media'],
+          ['enclosure', 'enclosure']
+        ]
+      }
+    });
+    
+    // Process each feed
+    let newArticlesAdded = 0;
+    
+    for (const feed of autoRefreshFeeds) {
+      try {
+        console.log(`Refreshing feed: ${feed.title} (${feed.url})`);
+        
+        // Fetch the RSS feed content
+        const response = await axios.get(feed.url, {
+          responseType: 'text',
+          timeout: 15000,
+          headers: {
+            'User-Agent': 'RSS Reader/1.0'
+          }
+        });
+        
+        // Parse the feed content
+        const parsedFeed = await parser.parseString(response.data);
+        
+        // Add new articles from the feed
+        if (parsedFeed.items && parsedFeed.items.length > 0) {
+          console.log(`Found ${parsedFeed.items.length} items in feed ${feed.title}`);
+          
+          // Get existing articles for this feed to avoid duplicates
+          const existingArticles = await storage.getArticlesByFeedId(feed.id);
+          const existingGuids = new Set(existingArticles.map(article => article.guid));
+          
+          for (const item of parsedFeed.items) {
+            if (!item.title || !item.link) continue;
+            
+            // Use guid or link as the unique identifier
+            const guid = item.guid || item.id || item.link;
+            
+            // Skip if we already have this article
+            if (existingGuids.has(guid)) {
+              continue;
+            }
+            
+            // Extract image URL if available
+            let imageUrl = '';
+            if (item.enclosure?.url) {
+              imageUrl = item.enclosure.url;
+            } else if (item.media?.$.url) {
+              imageUrl = item.media.$.url;
+            }
+            
+            // Create the article in storage
+            const newArticle = await storage.createArticle({
+              feedId: feed.id,
+              title: item.title,
+              link: item.link,
+              description: item.description || '',
+              content: item.content || item['content:encoded'] || item.description || '',
+              author: item.creator || item.author || '',
+              category: item.categories?.join(', ') || '',
+              pubDate: item.pubDate ? new Date(item.pubDate) : undefined,
+              guid,
+              imageUrl
+            });
+            
+            newArticlesAdded++;
+            console.log(`Added new article: ${item.title}`);
+          }
+        }
+        
+        // Update the feed's lastFetched timestamp
+        await storage.updateFeed(feed.id, { lastFetched: new Date() });
+        
+      } catch (error) {
+        console.error(`Error refreshing feed ${feed.title}:`, error);
+        // Continue with the next feed
+      }
+    }
+    
+    console.log(`Completed feed refresh. Added ${newArticlesAdded} new articles.`);
+    return newArticlesAdded;
+    
+  } catch (error) {
+    console.error('Error in refreshAllFeeds job:', error);
+  }
+}
+
 export function startBackgroundJobs() {
   // Process new articles every 10 minutes
   const articleProcessingIntervalMs = 10 * 60 * 1000;
   
+  // Refresh feeds every 30 minutes
+  const feedRefreshIntervalMs = 30 * 60 * 1000;
+  
   console.log('Starting background jobs...');
   
-  // Immediately process any pending articles
-  processNewArticles().catch(error => {
-    console.error('Error in initial article processing:', error);
-  });
+  // Immediately refresh feeds and process articles
+  refreshAllFeeds()
+    .then(() => {
+      return processNewArticles();
+    })
+    .catch(error => {
+      console.error('Error in initial feed refresh and article processing:', error);
+    });
   
-  // Then set up recurring jobs
+  // Set up recurring jobs
+  
+  // Article processing job
   setInterval(() => {
     processNewArticles().catch(error => {
       console.error('Error in scheduled article processing:', error);
     });
   }, articleProcessingIntervalMs);
   
+  // Feed refresh job
+  setInterval(() => {
+    refreshAllFeeds()
+      .then(newArticlesCount => {
+        // Only process articles if new ones were added
+        if (newArticlesCount && newArticlesCount > 0) {
+          return processNewArticles();
+        }
+      })
+      .catch(error => {
+        console.error('Error in scheduled feed refresh:', error);
+      });
+  }, feedRefreshIntervalMs);
+  
   console.log(`Background jobs started - article processing will run every ${articleProcessingIntervalMs / 60000} minutes`);
+  console.log(`Feed refresh will run every ${feedRefreshIntervalMs / 60000} minutes`);
 }
