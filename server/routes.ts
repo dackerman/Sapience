@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import axios from "axios";
 import Parser from "rss-parser";
-import { validateFeedUrlSchema, articleOperationSchema } from "@shared/schema";
+import { validateFeedUrlSchema, articleOperationSchema, insertArticlePreferenceSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { setupAuth } from "./auth";
-import { processNewArticles } from "./services/backgroundJobs";
+import { processNewArticles, processArticleVote } from "./services/backgroundJobs";
 import { generateArticleSummary } from "./services/openai";
 
 // Initialize RSS parser
@@ -710,6 +710,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching article preference:", error);
       res.status(500).json({
         message: "Failed to fetch article preference",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Endpoint to submit a preference (upvote/downvote) for an article
+  app.post("/api/articles/:id/preference", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const articleId = parseInt(req.params.id);
+      if (isNaN(articleId)) {
+        return res.status(400).json({ message: "Invalid article ID" });
+      }
+      
+      // Validate the request body
+      try {
+        const preferenceData = insertArticlePreferenceSchema.parse({
+          ...req.body,
+          userId: req.user.id,
+          articleId
+        });
+        
+        // Save the preference to the database
+        const articlePreference = await storage.createArticlePreference(preferenceData);
+        
+        // Start background job to process the vote (rescore articles, update user profile)
+        processArticleVote(req.user.id, articleId, articlePreference).catch(error => {
+          console.error(`Error processing article vote:`, error);
+          // Don't fail the request if processing fails
+        });
+        
+        res.status(201).json(articlePreference);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return res.status(400).json({ message: error.errors[0].message });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error saving article preference:", error);
+      res.status(500).json({
+        message: "Failed to save article preference",
         error: error instanceof Error ? error.message : String(error)
       });
     }
