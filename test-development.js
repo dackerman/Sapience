@@ -1,5 +1,10 @@
-// Script to start the application with the environment-specific database
-// Usage: NODE_ENV=production node scripts/start-environment.js
+/**
+ * Script to start the application in development mode
+ * 
+ * This script starts the application in development mode on port 5000
+ * 
+ * Usage: node test-development.js
+ */
 
 import { spawn } from 'child_process';
 import { URL } from 'url';
@@ -7,20 +12,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Get the environment and database configuration
-const environment = process.env.NODE_ENV || 'development';
-const environments = {
-  development: 'sapience_dev',
-  test: 'sapience_test',
-  production: 'sapience_prod'
-};
-
-const targetDatabase = environments[environment];
-
-if (!targetDatabase) {
-  console.error(`Unknown environment: ${environment}`);
-  process.exit(1);
-}
+// Development environment configuration
+const environment = 'development';
+const targetDatabase = 'sapience_dev';
+const port = 5000;
 
 // Function to modify a connection string to use a different database name
 function updateConnectionString(connectionString, dbName) {
@@ -45,27 +40,20 @@ function updateConnectionString(connectionString, dbName) {
   }
 }
 
-// Main function to start the application
-function startApplication() {
+// Main function to start the development environment
+function startDevelopment() {
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL environment variable is not set');
     process.exit(1);
   }
 
-  // Generate the environment-specific database URL
+  // Generate the development-specific database URL
   const databaseUrl = updateConnectionString(process.env.DATABASE_URL, targetDatabase);
-  
-  // Set different ports for different environments to avoid conflicts
-  const ports = {
-    development: 5000,
-    test: 5001,
-    production: 5002
-  };
-  const port = process.env.PORT || ports[environment] || 5000;
   
   console.log(`Starting application in ${environment} environment...`);
   console.log(`Using database: ${targetDatabase}`);
   console.log(`Server will listen on port: ${port}`);
+  console.log(`\nAccess the development server at: http://localhost:${port}\n`);
   
   // Create a modified environment with the updated DATABASE_URL
   const env = {
@@ -96,10 +84,13 @@ function startApplication() {
   // Handle termination signals
   ['SIGINT', 'SIGTERM'].forEach(signal => {
     process.on(signal, () => {
-      console.log(`\nReceived ${signal}, shutting down...`);
+      console.log(`\nReceived ${signal}, shutting down development server...`);
       appProcess.kill(signal);
     });
   });
 }
 
-startApplication();
+console.log('==== DEVELOPMENT ENVIRONMENT ====');
+console.log('This script starts the application in development mode\n');
+
+startDevelopment();

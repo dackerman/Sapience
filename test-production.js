@@ -1,5 +1,11 @@
-// Script to start the application with the environment-specific database
-// Usage: NODE_ENV=production node scripts/start-environment.js
+/**
+ * Script to test the production environment on a different port
+ * 
+ * This script starts the application in production mode on port 5002
+ * while the development server continues to run on port 5000.
+ * 
+ * Usage: node test-production.js
+ */
 
 import { spawn } from 'child_process';
 import { URL } from 'url';
@@ -7,20 +13,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Get the environment and database configuration
-const environment = process.env.NODE_ENV || 'development';
-const environments = {
-  development: 'sapience_dev',
-  test: 'sapience_test',
-  production: 'sapience_prod'
-};
-
-const targetDatabase = environments[environment];
-
-if (!targetDatabase) {
-  console.error(`Unknown environment: ${environment}`);
-  process.exit(1);
-}
+// Production environment configuration
+const environment = 'production';
+const targetDatabase = 'sapience_prod';
+const port = 5002;
 
 // Function to modify a connection string to use a different database name
 function updateConnectionString(connectionString, dbName) {
@@ -45,27 +41,20 @@ function updateConnectionString(connectionString, dbName) {
   }
 }
 
-// Main function to start the application
-function startApplication() {
+// Main function to start the test production environment
+function startProductionTest() {
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL environment variable is not set');
     process.exit(1);
   }
 
-  // Generate the environment-specific database URL
+  // Generate the production-specific database URL
   const databaseUrl = updateConnectionString(process.env.DATABASE_URL, targetDatabase);
-  
-  // Set different ports for different environments to avoid conflicts
-  const ports = {
-    development: 5000,
-    test: 5001,
-    production: 5002
-  };
-  const port = process.env.PORT || ports[environment] || 5000;
   
   console.log(`Starting application in ${environment} environment...`);
   console.log(`Using database: ${targetDatabase}`);
   console.log(`Server will listen on port: ${port}`);
+  console.log(`\nAccess the test production server at: http://localhost:${port}\n`);
   
   // Create a modified environment with the updated DATABASE_URL
   const env = {
@@ -96,10 +85,14 @@ function startApplication() {
   // Handle termination signals
   ['SIGINT', 'SIGTERM'].forEach(signal => {
     process.on(signal, () => {
-      console.log(`\nReceived ${signal}, shutting down...`);
+      console.log(`\nReceived ${signal}, shutting down test production server...`);
       appProcess.kill(signal);
     });
   });
 }
 
-startApplication();
+console.log('==== TEST PRODUCTION ENVIRONMENT ====');
+console.log('This script starts a second instance of the application in production mode');
+console.log('while keeping your development server running.\n');
+
+startProductionTest();

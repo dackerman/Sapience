@@ -58,6 +58,20 @@ NODE_ENV=test node scripts/start-environment.js
 NODE_ENV=production node scripts/start-environment.js
 ```
 
+## Testing Multiple Environments Simultaneously
+
+We've created convenient scripts to run development and production environments simultaneously:
+
+```bash
+# Start the development server on port 5000 (main instance)
+node test-development.js
+
+# Start a second instance in production mode on port 5002
+node test-production.js
+```
+
+This allows you to compare the behavior of different environments side-by-side without having to restart your server.
+
 ## How It Works
 
 - The application reads the `NODE_ENV` environment variable to determine which database to use
