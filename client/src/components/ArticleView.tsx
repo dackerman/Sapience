@@ -413,6 +413,31 @@ export default function ArticleView({
                         <p>{article.description}</p>
                       </div>
                     )}
+                    
+                    {/* Article voting UI for summary view */}
+                    <div className="flex flex-col gap-2 mt-6 border-t pt-4 border-gray-200">
+                      <p className="text-sm text-gray-500">Help improve our recommendations:</p>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1"
+                          onClick={() => handleVote('upvote')}
+                        >
+                          <ThumbsUp className="h-4 w-4" />
+                          Helpful
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1"
+                          onClick={() => handleVote('downvote')}
+                        >
+                          <ThumbsDown className="h-4 w-4" />
+                          Not Helpful
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
